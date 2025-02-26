@@ -27,11 +27,11 @@ def repr(x):
     calc(x)
 
 def activations(x):
-    n1 = sigmoid(x * 2 ** -2)
-    n2 = sigmoid(x * 2 ** -1)
-    n3 = sigmoid(x * 2 ** 0)
-    n4 = sigmoid(x * 2 ** 1)
-    n5 = sigmoid(x * 2 ** 2)
+    n1 = sigmoid((x+9) * 1e6)
+    n2 = sigmoid((x+3/2) * 1e6)
+    n3 = sigmoid((x+1/2) * 1e6)
+    n4 = sigmoid((x-1/2) * 1e6)
+    n5 = sigmoid((x-3/2) * 1e6)
     return n1, n2, n3, n4, n5
     
 
@@ -55,11 +55,11 @@ gaps13 = []
 gaps35 = []
 for x in xs:
     n1, n2, n3, n4, n5 = activations(x)
-    n1s.append(n1 - 0.5)
-    n2s.append(n2 - 0.5)
-    n3s.append(n3 - 0.5)
-    n4s.append(n4 - 0.5)
-    n5s.append(n5 - 0.5)
+    n1s.append(n1)
+    n2s.append(n2)
+    n3s.append(n3)
+    n4s.append(n4)
+    n5s.append(n5)
 
     gap13 = n1 - n3
     gap35 = n3 - n5
@@ -90,6 +90,5 @@ def plot_weights():
     plt.legend()
     plt.show()
 
-# plot_lines()
-plot_weights()
-
+plot_lines()
+# plot_weights()
