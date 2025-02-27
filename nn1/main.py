@@ -11,57 +11,56 @@ class MLP():
         self.neuron_counts = neuron_counts
         self.outputs = outputs
         self.generate_layers()
-        self.randomize()
 
     def generate_layers(self):
         self.layers = []
-        self.layers.append(Layer(self.inputs, self.neuron_counts[0]))
+        self.layers.append(Layer(neurons_in=self.inputs, neurons_out=self.neuron_counts[0], index=0))
         for i in range(1, len(self.neuron_counts)):
-            self.layers.append(Layer(self.neuron_counts[i - 1], self.neuron_counts[i]))
-        self.layers.append(LastLayer(self.neuron_counts[-1], self.outputs))
+            self.layers.append(Layer(neurons_in=self.neuron_counts[i - 1], neurons_out=self.neuron_counts[i], index=i))
+        self.layers.append(LastLayer(neurons_in=self.neuron_counts[-1], neurons_out=self.outputs, index=len(self.neuron_counts)))
 
-    def randomize(self):
+    def activate(self, X):
         for layer in self.layers:
-            layer.draw_weights()
-            layer.draw_bias()
- 
-    def forward(self, input):
-        for layer in self.layers:
-            output = layer.activate(input)
-            input = output
-        self.output = output
-        return output
+            X = layer.activate(X)
+        return X
+
+    def forward(self, X):
+        pass
 
     def save(self, name):
         with open(f'{name}.pkl', 'wb') as f:
             pickle.dump(self, f, pickle.HIGHEST_PROTOCOL)
-    
+
+    def load(self, name):
+        with open(f'{name}.pkl', 'rb') as f:
+            self = pickle.load(f)
 
 class Layer():
 
-    def __init__(self, neurons_in, neurons_out):
+    def __init__(self, neurons_in, neurons_out, index=None):
         self.neurons_in = neurons_in
         self.neurons_out = neurons_out
         self.weights = np.zeros((neurons_in, neurons_out))
         self.bias = np.zeros(neurons_out)
-
-    def draw_weights(self):
-        self.weights = np.random.uniform(-100, 100, (self.neurons_in, self.neurons_out))
-
-    def draw_bias(self):
-        self.bias = np.random.uniform(-100, 100, self.neurons_out)
-
-    def show_weights(self):
-        print(str(self.weights))
-
-    def show_bias(self):
-        print(str(self.bias))
+        self.index = index
 
     def activate(self, input):
         self.output = np.dot(input, self.weights) + self.bias
         self.output = 1 / (1 + np.exp(-self.output))
         return self.output
 
+    @property
+    def name(self):
+        return f"Layer {self.index}"
+
+    def __str__(self):
+        output =  f"{self.name}: {self.neurons_in} -> {self.neurons_out}"
+        for i in range(self.neurons_out):
+            output += f"\n\tNeuron {i}: "
+            output += f"\n\t\tWeights: {self.weights[:, i]}"
+            output += f"\n\t\tBias: {self.bias[i]}"
+        return output
+            
 
 class LastLayer(Layer):
 
@@ -69,23 +68,6 @@ class LastLayer(Layer):
         self.output = np.dot(input, self.weights) + self.bias
         return self.output
         
-def test2():
-    model = MLP(1,[5],1)
-    print(model.forward(-2))
-    print(model.forward(-1))
-    print(model.forward(0))
-    print(model.forward(1))
-    print(model.forward(2))
-
-
-def test():
-    layer = Layer(neurons_in=2, neurons_out=5)
-    layer.draw_weights()
-    layer.draw_bias()
-    layer.show_weights()
-    layer.show_bias()
-    print(layer.activate([1, 2]))
-
 class Tester():
 
     def __init__(self, n=2):
@@ -118,6 +100,20 @@ class Tester():
             if model_evaluation < self.best_evaluation:
                 self.best_model = model
                 self.best_evaluation = model_evaluation
+    
+# tester = Tester()
+# print(tester.best_evaluation)
 
-tester = Tester()
-print(tester.best_evaluation)
+def run():
+    model = MLP(1, [5], 1)
+    model.load("model")
+    action()
+    for layer in model.layers:
+        print(layer)
+    model.save("model2")
+
+def action():
+    pass
+
+if __name__ == "__main__":
+    run()
