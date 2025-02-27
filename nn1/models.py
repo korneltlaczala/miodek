@@ -19,13 +19,11 @@ class MLP():
             self.layers.append(Layer(neurons_in=self.neuron_counts[i - 1], neurons_out=self.neuron_counts[i], index=i))
         self.layers.append(LastLayer(neurons_in=self.neuron_counts[-1], neurons_out=self.outputs, index=len(self.neuron_counts)))
 
-    def activate(self, X):
-        for layer in self.layers:
-            X = layer.activate(X)
-        return X
-
     def forward(self, X):
-        pass
+        for layer in self.layers:
+            X = layer.calculate(X)
+        self.result = X
+        return X
 
     def save(self, name):
         with open(f'{name}.pkl', 'wb') as f:
@@ -40,14 +38,23 @@ class Layer():
     def __init__(self, neurons_in, neurons_out, index=None):
         self.neurons_in = neurons_in
         self.neurons_out = neurons_out
-        self.weights = np.zeros((neurons_in, neurons_out))
-        self.bias = np.zeros(neurons_out)
+        self.weights = np.zeros((neurons_out, neurons_in))
+        self.biases = np.zeros(neurons_out)
         self.index = index
 
-    def activate(self, input):
-        self.output = np.dot(input, self.weights) + self.bias
-        self.output = 1 / (1 + np.exp(-self.output))
+    def activate(self, X):
+        return 1 / (1 + np.exp(-X))
+
+    def calculate(self, input):
+        self.output = np.dot(self.weights, input) + self.biases[:, np.newaxis]
+        self.output = self.activate(self.output)
         return self.output
+
+    def set_weights(self, weights):
+        self.weights = weights
+
+    def set_biases(self, biases):
+        self.biases = biases
 
     @property
     def name(self):
@@ -57,15 +64,15 @@ class Layer():
         output =  f"{self.name}: {self.neurons_in} -> {self.neurons_out}"
         for i in range(self.neurons_out):
             output += f"\n\tNeuron {i}: "
-            output += f"\n\t\tWeights: {self.weights[:, i]}"
-            output += f"\n\t\tBias: {self.bias[i]}"
+            output += f"\n\t\tWeights: {self.weights[i, :]}"
+            output += f"\n\t\tBias: {self.biases[i]}"
         return output
             
 
 class LastLayer(Layer):
 
-    def activate(self, input):
-        self.output = np.dot(input, self.weights) + self.bias
+    def calculate(self, input):
+        self.output = np.dot(self.weights, input) + self.biases[:, np.newaxis]
         return self.output
         
 class Tester():
