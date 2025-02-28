@@ -2,17 +2,17 @@ import numpy as np
 import pandas as pd
 
 
-A = np.array([[1, 1], [2, 2], [3, 3], [4,4], [5,5]])
-X = np.array([[0,0,0,0,0,0,0], [1,1,1,1,1,1,1]])
+# A = np.array([[1, 1], [2, 2], [3, 3], [4,4], [5,5]])
+# X = np.array([[0,0,0,0,0,0,0], [1,1,1,1,1,1,1]])
 
 
-df = pd.read_csv('data/steps-large-training.csv')
-x = df['x']
-y = df['y']
+# df = pd.read_csv('data/steps-large-training.csv')
+# x = df['x']
+# y = df['y']
 
-print(A)
-print(X)
-print(np.dot(A, X))
+# print(A)
+# print(X)
+# print(np.dot(A, X))
 
 
 def sigmoid(x):

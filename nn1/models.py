@@ -26,12 +26,19 @@ class MLP():
         return X
 
     def save(self, name):
+        path = f'models/{name}.pkl'
         with open(f'{name}.pkl', 'wb') as f:
             pickle.dump(self, f, pickle.HIGHEST_PROTOCOL)
 
     def load(self, name):
         with open(f'{name}.pkl', 'rb') as f:
             self = pickle.load(f)
+        
+    def __str__(self):
+        output = ""
+        for layer in self.layers:
+            output += str(layer)
+        return output
 
 class Layer():
 
@@ -43,6 +50,7 @@ class Layer():
         self.index = index
 
     def activate(self, X):
+        X = np.clip(X, -500, 500)
         return 1 / (1 + np.exp(-X))
 
     def calculate(self, input):
@@ -66,6 +74,7 @@ class Layer():
             output += f"\n\tNeuron {i}: "
             output += f"\n\t\tWeights: {self.weights[i, :]}"
             output += f"\n\t\tBias: {self.biases[i]}"
+        output += "\n"
         return output
             
 
@@ -77,50 +86,39 @@ class LastLayer(Layer):
         
 class Tester():
 
-    def __init__(self, n=2):
-        self.n = n
-        filename1 = "data/steps-large-training.csv"
-        filename2 = "data/square-simple-training.csv"
-        self.read_data(filename1)
-        self.best_model = MLP(1, [5], 1)
-        self.best_evaluation = self.evaluate_model(self.best_model)
-        self.search_for_models()
-        
-    def read_data(self, filename):
-        self.df = pd.read_csv(filename)
-        self.x = self.df["x"]
-        self.y = self.df["y"]
+    def __init__(self, df=None, model=None):
+        self.df = df
+        self.model = model
+        self.ready = False
 
-    def evaluate_model(self, model):
-        y_hat = np.zeros(len(self.df))
-        for index, row in self.df.iterrows():
-            x = row["x"]
-            y_hat[index] = model.forward([x])[0]
-        errors = self.y - y_hat
-        mse = np.mean(errors**2)
-        return mse
+    def set_df(self, df):
+        if self.df is df:
+            return
+        self.df = df
+        self.ready = False
+
+    def set_model(self, model):
+        if self.model is model:
+            return
+        self.model = model
+        self.ready = False
+
+    def run(self):
+        if self.df is None or self.model is None:
+            print("please specify dataset and model first")
+
+        self.x = np.array([self.df["x"]])
+        self.y = np.array([self.df["y"]])
+        self.y_pred = self.model.forward(self.x)
+        self.mse = self.calculate_mse()
+        self.ready = True
     
-    def search_for_models(self):
-        for i in range(self.n):
-            model = MLP(1, [5], 1)
-            model_evaluation = self.evaluate_model(model)
-            if model_evaluation < self.best_evaluation:
-                self.best_model = model
-                self.best_evaluation = model_evaluation
-    
-# tester = Tester()
-# print(tester.best_evaluation)
+    def calculate_mse(self):
+        errors = self.y - self.y_pred
+        self.mse = np.mean(errors**2)
+        return self.mse
 
-def run():
-    model = MLP(1, [5], 1)
-    model.load("model")
-    action()
-    for layer in model.layers:
-        print(layer)
-    model.save("model2")
-
-def action():
-    pass
-
-if __name__ == "__main__":
-    run()
+    def report(self):
+        if not self.ready:
+            self.run()
+        print(f"mse: {self.mse}")
