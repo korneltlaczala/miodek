@@ -1,8 +1,6 @@
 import numpy as np
 import pickle
-import pandas as pd
-
-from sklearn.preprocessing import MinMaxScaler
+import matplotlib.pyplot as plt
 
 class MLP():
 
@@ -86,9 +84,16 @@ class LastLayer(Layer):
         
 class Tester():
 
-    def __init__(self, df=None, model=None):
+    def __init__(self, data_file=None, df=None, model=None):
+        self.data_file = data_file
         self.df = df
         self.model = model
+        self.ready = False
+
+    def set_data_file(self, data_file):
+        if self.data_file is data_file:
+            return
+        self.data_file = data_file
         self.ready = False
 
     def set_df(self, df):
@@ -112,6 +117,10 @@ class Tester():
         self.y_pred = self.model.forward(self.x)
         self.mse = self.calculate_mse()
         self.ready = True
+
+    def run_if_not_ready(self):
+        if not self.ready:
+            self.run()
     
     def calculate_mse(self):
         errors = self.y - self.y_pred
@@ -119,6 +128,12 @@ class Tester():
         return self.mse
 
     def report(self):
-        if not self.ready:
-            self.run()
+        self.run_if_not_ready()
         print(f"mse: {self.mse}")
+
+    def plot(self):
+        self.run_if_not_ready()
+        plt.scatter(self.x, self.y, label="y", s=10, alpha=0.9)
+        plt.scatter(self.x, self.y_pred, label="y_pred", s=3, alpha=0.1)
+        plt.legend()
+        plt.show()
