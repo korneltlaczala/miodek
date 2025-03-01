@@ -1,6 +1,8 @@
+from matplotlib.figure import Figure
 import numpy as np
 import pickle
 import matplotlib.pyplot as plt
+import pandas as pd
 
 class MLP():
 
@@ -25,12 +27,14 @@ class MLP():
 
     def save(self, name):
         path = f'models/{name}.pkl'
-        with open(f'{name}.pkl', 'wb') as f:
-            pickle.dump(self, f, pickle.HIGHEST_PROTOCOL)
+        with open(f'{name}.pkl', 'wb') as file:
+            pickle.dump(self, file, pickle.HIGHEST_PROTOCOL)
 
+    
+    @classmethod
     def load(self, name):
-        with open(f'{name}.pkl', 'rb') as f:
-            self = pickle.load(f)
+        with open(f'{name}', 'rb') as file:
+            return pickle.load(file)
         
     def __str__(self):
         output = ""
@@ -94,12 +98,14 @@ class Tester():
         if self.data_file is data_file:
             return
         self.data_file = data_file
+        self.df = pd.read_csv(data_file)
         self.ready = False
 
     def set_df(self, df):
         if self.df is df:
             return
         self.df = df
+        self.data_file = None
         self.ready = False
 
     def set_model(self, model):
@@ -109,31 +115,50 @@ class Tester():
         self.ready = False
 
     def run(self):
+        if self.ready:
+            return True
+
         if self.df is None or self.model is None:
             print("please specify dataset and model first")
+            self.ready = False
+            return False
 
         self.x = np.array([self.df["x"]])
         self.y = np.array([self.df["y"]])
         self.y_pred = self.model.forward(self.x)
         self.mse = self.calculate_mse()
         self.ready = True
+        return True
 
-    def run_if_not_ready(self):
-        if not self.ready:
-            self.run()
-    
     def calculate_mse(self):
         errors = self.y - self.y_pred
         self.mse = np.mean(errors**2)
         return self.mse
 
     def report(self):
-        self.run_if_not_ready()
+        if not self.run():
+            return
         print(f"mse: {self.mse}")
 
     def plot(self):
-        self.run_if_not_ready()
+        if not self.run():
+            return None
         plt.scatter(self.x, self.y, label="y", s=10, alpha=0.9)
         plt.scatter(self.x, self.y_pred, label="y_pred", s=3, alpha=0.1)
         plt.legend()
-        plt.show()
+        return plt
+
+    def get_fig(self):
+        if not self.run():
+            return None
+
+        # Create a new standalone figure (no global state involved)
+        fig = Figure()
+        ax = fig.add_subplot(111)
+
+        # Plot directly onto the figure's Axes
+        ax.scatter(self.x, self.y, label="y", s=50, alpha=0.9)
+        ax.scatter(self.x, self.y_pred, label="y_pred", s=20, alpha=0.5)
+        ax.legend()
+
+        return fig
