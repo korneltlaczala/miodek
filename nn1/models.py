@@ -23,10 +23,9 @@ class MLP():
 
     def forward(self, X):
         for layer in self.layers:
-            print(X[:,0])
+            print(X[:,0:3])
             X = layer.calculate(X)
-        print(X.shape)
-        print(X[:,0])
+        print(X[:,0:3])
         self.result = X
         return X
 
@@ -154,7 +153,7 @@ class Tester():
         if not self.run():
             return None
         plt.scatter(self.x, self.y, label="y", s=10, alpha=0.9)
-        plt.scatter(self.x, self.y_pred, label="y_pred", s=3, alpha=0.1)
+        plt.scatter(self.x, self.y_pred, label="y_pred", s=3, alpha=0.9)
         plt.legend()
         return plt
 
