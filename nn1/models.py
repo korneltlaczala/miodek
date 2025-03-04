@@ -23,9 +23,7 @@ class MLP():
 
     def forward(self, X):
         for layer in self.layers:
-            print(X[:,0:3])
             X = layer.calculate(X)
-        print(X[:,0:3])
         self.result = X
         return X
 
