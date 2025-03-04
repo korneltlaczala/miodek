@@ -1,3 +1,4 @@
+import copy
 from matplotlib.figure import Figure
 import numpy as np
 import pickle
@@ -10,6 +11,7 @@ class MLP():
         self.inputs = inputs
         self.neuron_counts = neuron_counts
         self.outputs = outputs
+        self.name = f"new_model"
         self.generate_layers()
 
     def generate_layers(self):
@@ -25,11 +27,17 @@ class MLP():
         self.result = X
         return X
 
-    def save(self, name):
+    def get_copy(self):
+        return copy.deepcopy(self)
+
+    def save(self, name=None):
+        if name == None:
+            name = self.name
+        else: 
+            self.name = name
         path = f'models/{name}.pkl'
         with open(f'{name}.pkl', 'wb') as file:
             pickle.dump(self, file, pickle.HIGHEST_PROTOCOL)
-
     
     @classmethod
     def load(self, name):

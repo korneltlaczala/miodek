@@ -91,5 +91,5 @@ def plot_weights():
     plt.legend()
     plt.show()
 
-# plot_lines()
+plot_lines()
 # plot_weights()
