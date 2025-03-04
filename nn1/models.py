@@ -23,7 +23,10 @@ class MLP():
 
     def forward(self, X):
         for layer in self.layers:
+            print(X[:,0])
             X = layer.calculate(X)
+        print(X.shape)
+        print(X[:,0])
         self.result = X
         return X
 
@@ -127,7 +130,6 @@ class Tester():
             return True
 
         if self.df is None or self.model is None:
-            print("please specify dataset and model first")
             self.ready = False
             return False
 

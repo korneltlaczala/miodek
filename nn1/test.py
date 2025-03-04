@@ -27,13 +27,19 @@ def repr(x):
     print(f"x = {x}")
     calc(x)
 
+weights0 = np.array([[1], [0.3], [0], [-0.3], [-1]])
+biases0 = np.array([0, 0, 0, 0, 0])
 def activations(x):
-    n1 = sigmoid((x+9) * 1e6)
-    n2 = sigmoid((x+3/2) * 1e6)
-    n3 = sigmoid((x+1/2) * 1e6)
-    n4 = sigmoid((x-1/2) * 1e6)
-    n5 = sigmoid((x-3/2) * 1e6)
-    return n1, n2, n3, n4, n5
+    ns = [0, 0, 0, 0, 0]
+    for i in range(5):
+        ns[i] = sigmoid(x * weights0[i][0] + biases0[i])
+    # n1 = sigmoid((x+9) * 1e6)
+    # n2 = sigmoid((x+3/2) * 1e6)
+    # n3 = sigmoid((x+1/2) * 1e6)
+    # n4 = sigmoid((x-1/2) * 1e6)
+    # n5 = sigmoid((x-3/2) * 1e6)
+    # return n1, n2, n3, n4, n5
+    return ns[0], ns[1], ns[2], ns[3], ns[4]
     
 
 
