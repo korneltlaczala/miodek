@@ -36,7 +36,7 @@ class MLP():
         else: 
             self.name = name
         path = f'models/{name}.pkl'
-        with open(f'{name}.pkl', 'wb') as file:
+        with open(path, 'wb') as file:
             pickle.dump(self, file, pickle.HIGHEST_PROTOCOL)
     
     @classmethod
