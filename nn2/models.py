@@ -80,6 +80,12 @@ class Layer():
     def set_biases(self, biases):
         self.biases = biases
 
+    def get_weights_shape(self):
+        return self.weights.shape
+
+    def get_biases_shape(self):
+        return self.biases.shape
+
     @property
     def name(self):
         return f"Layer {self.index}"
@@ -103,7 +109,10 @@ class Tester():
 
     def __init__(self, data_file=None, df=None, model=None):
         self.data_file = data_file
-        self.df = df
+        if self.data_file is not None:
+            self.df = pd.read_csv(self.data_file)
+        else:
+            self.df = df
         self.model = model
         self.ready = False
 
