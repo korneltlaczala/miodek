@@ -8,10 +8,10 @@ def run():
     # data_file = "data/square-simple-test.csv"
     # data_file = "data/multimodal-large-test.csv"
     # trainer = Trainer(model, data_file)
-    trainer = Trainer.load("trainer_square2")
+    trainer = Trainer.load("trainer_square_bartek")
     trainer.test()
     trainer.train(epochs=2e5, learning_rate=0.001)
-    trainer.ask_for_save("trainer_square2")
+    trainer.ask_for_save("trainer_square_bartek")
     # trainer.ask_for_save("trainer_multimodal")
 
 class Trainer():
@@ -39,6 +39,7 @@ class Trainer():
     def train(self, epochs, learning_rate=0.001, report_interval=1e4):
         self.target_epoch = self.current_epoch + epochs
         self.tester.run()
+        self.mse_min = self.tester.mse
         self.report_interval = report_interval
         self.report(starting=True)
         while self.current_epoch < self.target_epoch:
@@ -47,14 +48,20 @@ class Trainer():
             self.tester.run()
             self.current_epoch += 1
             self.report()
+            self.save_min_mse()
 
         self.test()
+
+    def save_min_mse(self):
+        if self.tester.mse < self.mse_min:
+            self.mse_min = self.tester.mse
+            self.save(name=self.name)
             
     def report(self, starting=False):
         if starting:
             self.report_start()
-        if self.current_epoch % self.report_interval == 0:
-            print(f"epoch: {self.current_epoch}\t\tmse: {self.tester.mse}")
+        if self.current_epoch % self.report_interval== 0:
+            print(f"epoch: {self.current_epoch}\t\tmse: {round(self.tester.mse, 2)}")
 
     def report_start(self):
         print("----------------------")
@@ -66,7 +73,7 @@ class Trainer():
 
     def test(self):
         self.tester.report()
-        plt = self.tester.plot()
+        plt = self.tester.plot(linear=True)
         plt.show()
 
     def save(self, name=None):
@@ -77,7 +84,7 @@ class Trainer():
         path = f'trainers/{name}.pkl'
         with open(path, 'wb') as file:
             pickle.dump(self, file, pickle.HIGHEST_PROTOCOL)
-        print(f"Trainer saved as {name}")
+        print(f"Trainer (age: {self.current_epoch}) saved as {name}.\t mse: {round(self.tester.mse, 2)}")
 
     def ask_for_save(self, name):
         response = None

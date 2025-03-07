@@ -36,11 +36,15 @@ class MLP():
                                      index=len(self.neuron_counts),
                                      activation_func=self.activation_func_last_layer))
 
-    def forward(self, X):
+    def forward(self, X, save=True):
         for layer in self.layers:
-            X = layer.calculate(X)
-        self.result = X
+            X = layer.calculate(X, save=save)
+        if save:
+            self.result = X
         return X
+
+    def predict(self, X):
+        return self.forward(X, save=False)
 
     def backprop(self, x, y_true, learning_rate):
         self.backward(y_true)
@@ -83,7 +87,7 @@ class MLP():
 
 class Layer():
 
-    def __init__(self, neurons_in, neurons_out, index, activation_func):
+    def __init__(self, neurons_in, neurons_out, index, activation_func, gradient_clip_value=2.0):
         self.neurons_in = neurons_in
         self.neurons_out = neurons_out
 
@@ -96,20 +100,26 @@ class Layer():
 
         self.index = index
         self.activation_func = activation_func
+        self.gcp = gradient_clip_value
 
-    def calculate(self, input):
-        self.a = np.dot(self.weights, input) + self.biases[:, np.newaxis]
-        self.output = self.activation_func.activate(self.a)
-        return self.output
+    def calculate(self, input, save):
+        a = np.dot(self.weights, input) + self.biases[:, np.newaxis]
+        output = self.activation_func.activate(a)
+        if save:
+            self.a = a
+            self.output = output
+        return output
 
     def backward(self, next_layer):
         weight_sums = np.dot(next_layer.weights.T, next_layer.deltas)
         self.deltas = weight_sums * self.activation_func.derivative(self.a)
 
     def update(self, prev_layer, learning_rate):
-        clipped_deltas = np.clip(self.deltas, -1, 1)
+        clipped_deltas = np.clip(self.deltas, -self.gcp, self.gcp)
         self.weights -= learning_rate * np.dot(clipped_deltas, prev_layer.output.T) / prev_layer.output.shape[1]
         self.biases -= learning_rate * np.mean(clipped_deltas, axis=1)
+        # self.weights -= learning_rate * np.clip(np.dot(self.deltas, prev_layer.output.T) / prev_layer.output.shape[1], -self.gcp, self.gcp)
+        # self.biases -= learning_rate * np.clip(np.mean(self.deltas, axis=1), -self.gcp, self.gcp)
 
     def set_weights(self, weights):
         self.weights = weights
@@ -137,11 +147,12 @@ class Layer():
         return output
             
 class FirstLayer(Layer):
-
     def update(self, prev_layer, learning_rate):
-        clipped_deltas = np.clip(self.deltas, -1, 1)
+        clipped_deltas = np.clip(self.deltas, -self.gcp, self.gcp)
         self.weights -= learning_rate * np.dot(clipped_deltas, prev_layer.T) / prev_layer.shape[1]
         self.biases -= learning_rate * np.mean(clipped_deltas, axis=1)
+        # self.weights -= learning_rate * np.clip(np.dot(self.deltas, prev_layer.T) / prev_layer.shape[1], -self.gcp, self.gcp)
+        # self.biases -= learning_rate * np.clip(np.mean(self.deltas, axis=1), -self.gcp, self.gcp)
 
 class LastLayer(Layer):
 
@@ -209,9 +220,18 @@ class Tester():
     def set_not_ready(self):
         self.ready = False
 
-    def plot(self):
+    def plot(self, linear=False):
         if not self.run():
             return None
+        if linear:
+            x = np.array([np.linspace(self.x.min(), self.x.max(), 1000)])
+            y_pred = self.model.predict(x)
+
+            plt.scatter(self.x, self.y, label="y", s=10, alpha=0.9)
+            plt.plot(x.T, y_pred.T, label="y_pred", color='r', alpha=0.8)
+            plt.legend()
+            return plt
+
         plt.scatter(self.x, self.y, label="y", s=10, alpha=0.9)
         plt.scatter(self.x, self.y_pred, label="y_pred", s=3, alpha=0.9)
         plt.legend()

@@ -35,14 +35,15 @@ class TrainerFrame(ctk.CTkFrame):
 
     def fill(self):
 
-        self.grid_rowconfigure(0, weight=1)
+        # self.grid_rowconfigure(0, weight=1)
         # self.grid_columnconfigure(0, weight=1)
         # self.grid_columnconfigure(1, weight=1)
         # self.grid_columnconfigure(2, weight=1)
-        self.trainer_name_entry = ctk.CTkEntry(self, placeholder_text=self.trainer.name, font=("Helvetica", 16))
+        self.trainer_name_entry = ctk.CTkEntry(self, placeholder_text="Trainer Name", font=("Helvetica", 16))
         self.trainer_name_entry.grid(row=0, column=0, columnspan=2, padx=5, pady=5, sticky='nsew')
+        self.trainer_name_entry.insert(0, self.trainer.name)
 
-        self.save_button = ctk.CTkButton(self, text="Save Trainer", command=lambda: self.trainer.save())
+        self.save_button = ctk.CTkButton(self, text="Save Trainer", command=self.save_trainer)
         self.save_button.grid(row=1, column=0, padx=5, pady=5, sticky='nsew')
 
         self.restore_button = ctk.CTkButton(self, text="Restore Trainer", command=self.restore_trainer)
@@ -54,6 +55,10 @@ class TrainerFrame(ctk.CTkFrame):
         self.current_epoch_label.grid(row=0, column=2, padx=5, pady=5, sticky='nsew')
         self.current_mse_label = ctk.CTkLabel(self, text="Current MSE: " + mse, anchor='w')
         self.current_mse_label.grid(row=1, column=2, padx=5, pady=5, sticky='nsew')
+
+    def save_trainer(self):
+        new_name = self.trainer_name_entry.get()
+        self.trainer.save(new_name)
         
     def restore_trainer(self):
         pass
