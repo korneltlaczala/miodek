@@ -4,33 +4,92 @@ import numpy as np
 from models import *
 
 def run():
-    model = MLP(1, [5], 1)
-    data_file = "data/square-simple-test.csv"
+    model = MLP(1, [30, 64, 30], 1)
+    data_file = "data/multimodal-large-test.csv"
     trainer = Trainer(model, data_file)
-    trainer.train()
+    # trainer = Trainer.load("trainer_square")
+    trainer.train(epochs=1e5, learning_rate=0.1)
+    trainer.ask_for_save("trainer_multimodal")
 
 class Trainer():
 
-    def __init__(self, model, data_file, epochs=10):
+    def __init__(self, model, data_file, target_epoch=1e5, name="default_trainer"):
         self.model = model
+        self.data_file = data_file
         self.tester = Tester(model=model, data_file=data_file)
         self.current_epoch = 0
-        self.epochs = epochs
+        self.target_epoch = target_epoch
+        self.name = name
+        self.prepare_data()
         self.initialize_model()
 
     def initialize_model(self):
         initializer = RandomInitializer()
         initializer.initialize(self.model)
 
-    def train(self):
-        while self.current_epoch < self.epochs:
-            self.test()
+    def prepare_data(self):
+        self.tester.set_data_file(self.data_file)
+        self.df = pd.read_csv(self.data_file)
+        self.X = np.array([self.df["x"]])
+        self.y = np.array([self.df["y"]])
+
+    def train(self, epochs, learning_rate=0.001, report_interval=1e4):
+        self.target_epoch = self.current_epoch + epochs
+        self.tester.run()
+        self.report_interval = report_interval
+        self.report(starting=True)
+        while self.current_epoch < self.target_epoch:
+            self.model.backprop(x=self.X, y_true=self.y, learning_rate=learning_rate)
+            self.tester.set_not_ready()
+            self.tester.run()
             self.current_epoch += 1
+            self.report()
+
+        self.test()
+            
+    def report(self, starting=False):
+        if starting:
+            self.report_start()
+        if self.current_epoch % self.report_interval == 0:
+            print(f"epoch: {self.current_epoch}\t\tmse: {self.tester.mse}")
+
+    def report_start(self):
+        print("----------------------")
+        print(f"Starting training")
+        print(f"model age: {self.current_epoch} of {self.target_epoch} epochs")
+        print(f"epochs to go: {self.target_epoch - self.current_epoch}")
+        print(f"starting mse: {self.tester.mse}")
+        print("----------------------")
 
     def test(self):
         self.tester.report()
         plt = self.tester.plot()
         plt.show()
+
+    def save(self, name=None):
+        if name == None:
+            name = self.name
+        else: 
+            self.name = name
+        path = f'trainers/{name}.pkl'
+        with open(path, 'wb') as file:
+            pickle.dump(self, file, pickle.HIGHEST_PROTOCOL)
+        print(f"Trainer saved as {name}")
+
+    def ask_for_save(self, name):
+        response = None
+        while response not in ['y', 'n']:
+            response = input("Save trainer? (y/n) ")
+        if response == 'y':
+            self.save(name)
+        else:
+            print("Trainer not saved")
+    
+    @classmethod
+    def load(self, name):
+        path = f'trainers/{name}.pkl'
+        with open(path, 'rb') as file:
+            return pickle.load(file)
 
 class Initializer():
 

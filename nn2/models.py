@@ -22,16 +22,41 @@ class MLP():
 
     def generate_layers(self):
         self.layers = []
-        self.layers.append(Layer(neurons_in=self.inputs, neurons_out=self.neuron_counts[0], index=0, activation_func=self.activation_func))
+        self.layers.append(FirstLayer(neurons_in=self.inputs,
+                                      neurons_out=self.neuron_counts[0],
+                                      index=0,
+                                      activation_func=self.activation_func))
         for i in range(1, len(self.neuron_counts)):
-            self.layers.append(Layer(neurons_in=self.neuron_counts[i - 1], neurons_out=self.neuron_counts[i], index=i, activation_func=self.activation_func))
-        self.layers.append(LastLayer(neurons_in=self.neuron_counts[-1], neurons_out=self.outputs, index=len(self.neuron_counts), activation_func=self.activation_func_last_layer))
+            self.layers.append(Layer(neurons_in=self.neuron_counts[i - 1],
+                                     neurons_out=self.neuron_counts[i],
+                                     index=i,
+                                     activation_func=self.activation_func))
+        self.layers.append(LastLayer(neurons_in=self.neuron_counts[-1],
+                                     neurons_out=self.outputs,
+                                     index=len(self.neuron_counts),
+                                     activation_func=self.activation_func_last_layer))
 
     def forward(self, X):
         for layer in self.layers:
             X = layer.calculate(X)
         self.result = X
         return X
+
+    def backprop(self, x, y_true, learning_rate):
+        self.backward(y_true)
+        self.update(x, learning_rate)
+    
+    def backward(self, y_true):
+        next_layer = y_true
+        for layer in reversed(self.layers):
+            layer.backward(next_layer)
+            next_layer = layer
+
+    def update(self, x, learning_rate):
+        prev_layer = x
+        for layer in self.layers:
+            layer.update(prev_layer, learning_rate)
+            prev_layer = layer
 
     def get_copy(self):
         return copy.deepcopy(self)
@@ -65,14 +90,26 @@ class Layer():
         self.weights = np.zeros((neurons_out, neurons_in))
         self.biases = np.zeros(neurons_out)
 
+        self.a = None
+        self.output = None
+        self.deltas = None
+
         self.index = index
         self.activation_func = activation_func
-
 
     def calculate(self, input):
         self.a = np.dot(self.weights, input) + self.biases[:, np.newaxis]
         self.output = self.activation_func.activate(self.a)
         return self.output
+
+    def backward(self, next_layer):
+        weight_sums = np.dot(next_layer.weights.T, next_layer.deltas)
+        self.deltas = weight_sums * self.activation_func.derivative(self.a)
+
+    def update(self, prev_layer, learning_rate):
+        clipped_deltas = np.clip(self.deltas, -1, 1)
+        self.weights -= learning_rate * np.dot(clipped_deltas, prev_layer.output.T) / prev_layer.output.shape[1]
+        self.biases -= learning_rate * np.mean(clipped_deltas, axis=1)
 
     def set_weights(self, weights):
         self.weights = weights
@@ -99,10 +136,18 @@ class Layer():
         output += "\n"
         return output
             
+class FirstLayer(Layer):
+
+    def update(self, prev_layer, learning_rate):
+        clipped_deltas = np.clip(self.deltas, -1, 1)
+        self.weights -= learning_rate * np.dot(clipped_deltas, prev_layer.T) / prev_layer.shape[1]
+        self.biases -= learning_rate * np.mean(clipped_deltas, axis=1)
 
 class LastLayer(Layer):
 
-    pass
+    def backward(self, y_true):
+        errors = self.output - y_true
+        self.deltas = errors * self.activation_func.derivative(self.a)
 
 
 class Tester():
@@ -160,6 +205,9 @@ class Tester():
         if not self.run():
             return
         print(f"mse: {self.mse}")
+
+    def set_not_ready(self):
+        self.ready = False
 
     def plot(self):
         if not self.run():

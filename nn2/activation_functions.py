@@ -24,7 +24,7 @@ class Sigmoid(ActivationFunction):
         self.name = "Sigmoid"
 
     def activate(self, X):
-        X.clip(-500, 500)
+        X = X.clip(-100, 100)
         return 1 / (1 + np.exp(-X))
 
     def derivative(self, X):
@@ -75,4 +75,10 @@ class Linear(ActivationFunction):
         return X
 
     def derivative(self, X):
-        return 1
+        return np.ones_like(X)
+
+def test():
+    x = np.random.uniform(-5, 5, size=(5,))
+    print(x)
+    print(Linear().activate(x))
+    print(Linear().derivative(x))
