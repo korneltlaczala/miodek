@@ -4,12 +4,15 @@ import numpy as np
 from models import *
 
 def run():
-    model = MLP(1, [30, 64, 30], 1)
-    data_file = "data/multimodal-large-test.csv"
-    trainer = Trainer(model, data_file)
-    # trainer = Trainer.load("trainer_square")
-    trainer.train(epochs=1e5, learning_rate=0.1)
-    trainer.ask_for_save("trainer_multimodal")
+    # model = MLP(1, [16, 30, 16], 1)
+    # data_file = "data/square-simple-test.csv"
+    # data_file = "data/multimodal-large-test.csv"
+    # trainer = Trainer(model, data_file)
+    trainer = Trainer.load("trainer_square2")
+    trainer.test()
+    trainer.train(epochs=2e5, learning_rate=0.001)
+    trainer.ask_for_save("trainer_square2")
+    # trainer.ask_for_save("trainer_multimodal")
 
 class Trainer():
 
@@ -118,4 +121,5 @@ class RandomInitializer(Initializer):
         for layer in model.layers:
             layer.set_biases(np.random.uniform(0, 1, size=layer.get_biases_shape()))
 
-run()
+if __name__ == "__main__":
+    run()
