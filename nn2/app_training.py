@@ -161,8 +161,9 @@ class TrainingEnvironment():
         self.set_trainer(trainer_name)
         self.setup_epochs(epochs)
 
-    def set_trainer(self, trainer_name):
-        self.trainer_name = trainer_name
+    def set_trainer(self, trainer_name=None):
+        if trainer_name is not None:
+            self.trainer_name = trainer_name
         self.trainer = Trainer.load(self.trainer_name)
 
     def setup_epochs(self, epochs):
@@ -201,5 +202,17 @@ class TrainingEnvironment():
         self.trainer_frame = TrainerFrame(self.root, self, self.app.trainer)
         self.trainer_frame.pack(side='top', expand=False, fill='both', padx=5, pady=5)
 
+    def save(self):
+        trainer = self.trainer
+        self.trainer = None
+        with open(f'app/training_env.pkl', 'wb') as file:
+            pickle.dump(self, file, pickle.HIGHEST_PROTOCOL)
+        self.trainer = trainer
+
+    @classmethod
+    def load(self):
+        with open(f'app/training_env.pkl', 'rb') as file:
+            return pickle.load(file)
+        
 if __name__ == "__main__":
     App(trainer_name="trainer_app")
