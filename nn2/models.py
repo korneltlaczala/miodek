@@ -221,18 +221,37 @@ class Tester():
         self.ready = False
 
     def plot(self, linear=False):
-        if not self.run():
-            return None
         if linear:
             x = np.array([np.linspace(self.x.min(), self.x.max(), 1000)])
             y_pred = self.model.predict(x)
-
             plt.scatter(self.x, self.y, label="y", s=10, alpha=0.9)
-            plt.plot(x.T, y_pred.T, label="y_pred", color='r', alpha=0.8)
+            plt.plot(x.T, y_pred.T, label="y_pred", color='red', alpha=0.5)
             plt.legend()
             return plt
 
+        if not self.run():
+            return None
         plt.scatter(self.x, self.y, label="y", s=10, alpha=0.9)
-        plt.scatter(self.x, self.y_pred, label="y_pred", s=3, alpha=0.9)
+        plt.scatter(self.x, self.y, label="y_pred", s=10, alpha=0.5)
         plt.legend()
         return plt
+
+    def get_fig(self, linear=False):
+        if linear:
+            x = np.array([np.linspace(self.x.min(), self.x.max(), 1000)])
+            y_pred = self.model.predict(x)
+            fig = Figure()
+            ax = fig.add_subplot(111)
+            ax.scatter(self.x, self.y, label="y", s=50, alpha=0.9)
+            ax.plot(x.T, y_pred.T, label="y_pred", color='red', alpha=0.5)
+            ax.legend()
+            return fig
+
+        if not self.run():
+            return None
+        fig = Figure()
+        ax = fig.add_subplot(111)
+        ax.scatter(self.x, self.y, label="y", s=50, alpha=0.9)
+        ax.scatter(self.x, self.y_pred, label="y_pred", s=20, alpha=0.5)
+        ax.legend()
+        return fig

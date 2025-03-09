@@ -4,24 +4,28 @@ import numpy as np
 from models import *
 
 def run():
-    # model = MLP(1, [16, 30, 16], 1)
-    # data_file = "data/square-simple-test.csv"
+    data_file = "data/square-simple-test.csv"
+    # trainer_name = "trainer_square_2000"
+    trainer_name = "trainer_square"
     # data_file = "data/multimodal-large-test.csv"
-    # trainer = Trainer(model, data_file)
-    trainer = Trainer.load("trainer_square_bartek")
+    # trainer_name = "trainer_multimodal"
+    # model = MLP(1, [16, 30, 16], 1)
+    # trainer = Trainer(model, data_file, name=trainer_name)
+    trainer = Trainer.load(trainer_name)
     trainer.test()
-    trainer.train(epochs=2e5, learning_rate=0.001)
-    trainer.ask_for_save("trainer_square_bartek")
-    # trainer.ask_for_save("trainer_multimodal")
+    trainer.train(epochs=5e4, learning_rate=0.1, auto_save=True)
+    trainer.ask_for_save(trainer_name)
 
 class Trainer():
 
-    def __init__(self, model, data_file, target_epoch=1e5, name="default_trainer"):
+    def __init__(self, model, data_file, new_epochs=1e4, target_epoch=1e5, learning_rate=0.001, name="default_trainer"):
         self.model = model
         self.data_file = data_file
         self.tester = Tester(model=model, data_file=data_file)
         self.current_epoch = 0
         self.target_epoch = target_epoch
+        self.new_epochs = new_epochs
+        self.learning_rate = learning_rate
         self.name = name
         self.prepare_data()
         self.initialize_model()
@@ -36,21 +40,32 @@ class Trainer():
         self.X = np.array([self.df["x"]])
         self.y = np.array([self.df["y"]])
 
-    def train(self, epochs, learning_rate=0.001, report_interval=1e4):
-        self.target_epoch = self.current_epoch + epochs
+    def train(self, epochs=None, learning_rate=None, report_interval=5e3, auto_save=True):
+        self.setup_training(epochs=epochs, learning_rate=learning_rate, report_interval=report_interval)
+        self.report(starting=True)
+        while self.current_epoch < self.target_epoch:
+            self.train_step(learning_rate=self.learning_rate, auto_save=auto_save)
+            self.report()
+        self.test()
+
+    def setup_training(self, epochs, learning_rate, report_interval):
+        if epochs is not None:
+            self.new_epochs = epochs
+        if learning_rate is not None:
+            self.learning_rate = learning_rate
+        self.target_epoch = self.current_epoch + self.new_epochs
         self.tester.run()
         self.mse_min = self.tester.mse
         self.report_interval = report_interval
-        self.report(starting=True)
-        while self.current_epoch < self.target_epoch:
+
+    def train_step(self, learning_rate, auto_save):
             self.model.backprop(x=self.X, y_true=self.y, learning_rate=learning_rate)
             self.tester.set_not_ready()
             self.tester.run()
             self.current_epoch += 1
-            self.report()
-            self.save_min_mse()
+            if auto_save:
+                self.save_min_mse()
 
-        self.test()
 
     def save_min_mse(self):
         if self.tester.mse < self.mse_min:
@@ -73,6 +88,7 @@ class Trainer():
 
     def test(self):
         self.tester.report()
+        # plt = self.tester.plot()
         plt = self.tester.plot(linear=True)
         plt.show()
 
@@ -82,6 +98,7 @@ class Trainer():
         else: 
             self.name = name
         path = f'trainers/{name}.pkl'
+        self.tester.run()
         with open(path, 'wb') as file:
             pickle.dump(self, file, pickle.HIGHEST_PROTOCOL)
         print(f"Trainer (age: {self.current_epoch}) saved as {name}.\t mse: {round(self.tester.mse, 2)}")
