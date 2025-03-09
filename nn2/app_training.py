@@ -57,11 +57,11 @@ class TrainerFrame(ctk.CTkFrame):
 
     def fill_progress_frame(self):
         self.current_epoch_label = ctk.CTkLabel(self.progress_frame, anchor='w')
-        self.current_epoch_label.grid(row=0, column=2, padx=5, pady=5, sticky='nsew')
+        self.current_epoch_label.grid(row=0, column=2, padx=15, pady=2, sticky='nsew')
         self.current_mse_label = ctk.CTkLabel(self.progress_frame, anchor='w')
-        self.current_mse_label.grid(row=1, column=2, padx=5, pady=5, sticky='nsew')
+        self.current_mse_label.grid(row=1, column=2, padx=15, pady=2, sticky='nsew')
         self.best_mse_label = ctk.CTkLabel(self.progress_frame, anchor='w')
-        self.best_mse_label.grid(row=2, column=2, padx=5, pady=5, sticky='nsew')
+        self.best_mse_label.grid(row=2, column=2, padx=15, pady=2, sticky='nsew')
         self.update_progress_frame()
 
     def fill_settings_frame(self):
@@ -76,8 +76,8 @@ class TrainerFrame(ctk.CTkFrame):
         self.update_settings_frame()
 
     def fill_button_frame(self):
-        self.start_button = ctk.CTkButton(self.button_frame, text="Start", command=self.env.start_training)
-        self.start_button.pack(side='left', padx=5, pady=5, fill='x')
+        self.train_button = ctk.CTkButton(self.button_frame, text="Train", command=self.env.start_training)
+        self.train_button.pack(side='left', padx=5, pady=5, fill='x')
  
     def update_command_frame(self):
         self.trainer_name_entry.delete(0, 'end')
@@ -88,8 +88,8 @@ class TrainerFrame(ctk.CTkFrame):
         mse = str(round(self.env.trainer.tester.mse, 2))
         best_mse = str(round(self.env.trainer.best_mse, 2))
         self.current_epoch_label.configure(text="Current Epoch: " + current_epoch)
-        self.current_mse_label.configure(text="Current MSE: " + mse)
-        self.best_mse_label.configure(text="Best MSE:    " + best_mse)
+        self.current_mse_label.configure(text="Current MSE:\t" + mse)
+        self.best_mse_label.configure(text="Best MSE:\t" + best_mse)
 
     def update_settings_frame(self):
         self.learning_rate_label.configure(text=f"Learning Rate: {self.env.learning_rate}")
