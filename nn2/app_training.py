@@ -32,28 +32,28 @@ class TrainerFrame(ctk.CTkFrame):
         self.fill()
 
     def fill(self):
-        self.save_frame = ctk.CTkFrame(self)
+        self.command_frame = ctk.CTkFrame(self)
         self.progress_frame = ctk.CTkFrame(self)
         self.settings_frame = ctk.CTkFrame(self)
         self.button_frame = ctk.CTkFrame(self)
-        self.save_frame.grid(row=0, column=0, rowspan=2, padx=5, pady=5, sticky='nsew')
+        self.command_frame.grid(row=0, column=0, rowspan=2, padx=5, pady=5, sticky='nsew')
         self.progress_frame.grid(row=0, column=1, rowspan=2, padx=5, pady=5, sticky='nsew')
         self.settings_frame.grid(row=0, column=2, padx=5, pady=5, sticky='nsew')
         self.button_frame.grid(row=1, column=2, padx=5, pady=5, sticky='nsew')
         
-        self.fill_save_frame()
+        self.fill_command_frame()
         self.fill_progress_frame()
         self.fill_settings_frame()
         self.fill_button_frame()
 
-    def fill_save_frame(self):
-        self.trainer_name_entry = ctk.CTkEntry(self.save_frame, placeholder_text="Trainer Name", font=("Helvetica", 16))
+    def fill_command_frame(self):
+        self.trainer_name_entry = ctk.CTkEntry(self.command_frame, placeholder_text="Trainer Name", font=("Helvetica", 16))
         self.trainer_name_entry.grid(row=0, column=0, columnspan=2, padx=5, pady=5, sticky='nsew')
-        self.save_button = ctk.CTkButton(self.save_frame, text="Save Trainer", command=self.env.save_trainer)
+        self.save_button = ctk.CTkButton(self.command_frame, text="Save Trainer", command=self.env.save_trainer)
         self.save_button.grid(row=1, column=0, padx=5, pady=5, sticky='nsew')
-        self.restore_button = ctk.CTkButton(self.save_frame, text="Restore Trainer", command=self.env.restore_trainer)
+        self.restore_button = ctk.CTkButton(self.command_frame, text="Restore Trainer", command=self.env.restore_trainer)
         self.restore_button.grid(row=1, column=1, padx=5, pady=5, sticky='nsew')
-        self.update_save_frame()
+        self.update_command_frame()
 
     def fill_progress_frame(self):
         self.current_epoch_label = ctk.CTkLabel(self.progress_frame, anchor='w')
@@ -79,7 +79,7 @@ class TrainerFrame(ctk.CTkFrame):
         self.start_button = ctk.CTkButton(self.button_frame, text="Start", command=self.env.start_training)
         self.start_button.pack(side='left', padx=5, pady=5, fill='x')
  
-    def update_save_frame(self):
+    def update_command_frame(self):
         self.trainer_name_entry.delete(0, 'end')
         self.trainer_name_entry.insert(0, self.env.trainer_name)
 
