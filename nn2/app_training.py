@@ -187,11 +187,10 @@ class TrainingEnvironment():
 
     def set_learning_rate(self, learning_rate):
         self.learning_rate = learning_rate
-        self.app.update_settings_frame()
-        # self.app.trainer_frame.learning_rate_label.configure(text=f"Learning Rate: {self.learning_rate}")
+        self.app.trainer_frame.update_settings_frame()
 
-    def set_epoch_multiplier(self):
-        self.epoch_multiplier = int(self.app.trainer_frame.epoch_multiplier_combobox.get())
+    def set_epoch_multiplier(self, value):
+        self.epoch_multiplier = int(value)
         self.set_epochs()
 
     def set_epoch_oom(self, epoch_oom):
@@ -200,8 +199,7 @@ class TrainingEnvironment():
 
     def set_epochs(self):
         self.epochs = self.epoch_multiplier * self.epoch_oom
-        self.app.update_settings_frame()
-        # self.app.trainer_frame.new_epochs_label.configure(text=f"New Epochs: {self.epochs}")
+        self.app.trainer_frame.update_settings_frame()
 
     def start_training(self):
         self.app.trainer.train(epochs=self.new_epochs,
