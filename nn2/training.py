@@ -6,7 +6,8 @@ from models import *
 def run():
     data_file = "data/square-simple-test.csv"
     # trainer_name = "trainer_square_2000"
-    trainer_name = "trainer_square"
+    # trainer_name = "trainer_square"
+    trainer_name = "trainer_app"
     # data_file = "data/multimodal-large-test.csv"
     # trainer_name = "trainer_multimodal"
     # model = MLP(1, [16, 30, 16], 1)
@@ -18,13 +19,10 @@ def run():
 
 class Trainer():
 
-    def __init__(self, model, data_file, new_epochs=1e4, target_epoch=1e5, learning_rate=0.001, name="default_trainer"):
+    def __init__(self, model, data_file, learning_rate=0.001, name="default_trainer"):
         self.model = model
         self.data_file = data_file
         self.tester = Tester(model=model, data_file=data_file)
-        self.current_epoch = 0
-        self.target_epoch = target_epoch
-        self.new_epochs = new_epochs
         self.learning_rate = learning_rate
         self.name = name
         self.prepare_data()
@@ -33,6 +31,9 @@ class Trainer():
     def initialize_model(self):
         initializer = RandomInitializer()
         initializer.initialize(self.model)
+        self.tester.run()
+        self.best_mse = self.tester.mse
+        self.current_epoch = 0
 
     def prepare_data(self):
         self.tester.set_data_file(self.data_file)
@@ -40,22 +41,20 @@ class Trainer():
         self.X = np.array([self.df["x"]])
         self.y = np.array([self.df["y"]])
 
-    def train(self, epochs=None, learning_rate=None, report_interval=5e3, auto_save=True):
-        self.setup_training(epochs=epochs, learning_rate=learning_rate, report_interval=report_interval)
+    def train(self, epochs, learning_rate=None, report_interval=5e3, auto_save=True):
+        self.setup_training(learning_rate=learning_rate, report_interval=report_interval)
         self.report(starting=True)
-        while self.current_epoch < self.target_epoch:
+        self.plot()
+        for i in range(int(epochs)):
             self.train_step(learning_rate=self.learning_rate, auto_save=auto_save)
             self.report()
-        self.test()
+        self.plot()
 
-    def setup_training(self, epochs, learning_rate, report_interval):
-        if epochs is not None:
-            self.new_epochs = epochs
+    def setup_training(self, learning_rate, report_interval):
         if learning_rate is not None:
             self.learning_rate = learning_rate
-        self.target_epoch = self.current_epoch + self.new_epochs
         self.tester.run()
-        self.mse_min = self.tester.mse
+        self.best_mse = self.tester.mse
         self.report_interval = report_interval
 
     def train_step(self, learning_rate, auto_save):
@@ -64,12 +63,12 @@ class Trainer():
             self.tester.run()
             self.current_epoch += 1
             if auto_save:
-                self.save_min_mse()
+                self.save_best()
 
 
-    def save_min_mse(self):
-        if self.tester.mse < self.mse_min:
-            self.mse_min = self.tester.mse
+    def save_best(self):
+        if self.tester.mse < self.best_mse:
+            self.best_mse = self.tester.mse
             self.save(name=self.name)
             
     def report(self, starting=False):
@@ -87,8 +86,13 @@ class Trainer():
         print("----------------------")
 
     def test(self):
+        self.report()
+        self.plot()
+
+    def report(self):
         self.tester.report()
-        # plt = self.tester.plot()
+
+    def plot(self):
         plt = self.tester.plot(linear=True)
         plt.show()
 
@@ -144,6 +148,7 @@ class RandomInitializer(Initializer):
     def initialize_biases(self, model):
         for layer in model.layers:
             layer.set_biases(np.random.uniform(0, 1, size=layer.get_biases_shape()))
+
 
 if __name__ == "__main__":
     run()
