@@ -93,7 +93,7 @@ class TrainerFrame(ctk.CTkFrame):
     def update_progress_frame(self):
         current_epoch = str(self.env.trainer.current_epoch)
         mse = str(round(self.env.trainer.tester.mse, 2))
-        best_mse = str(self.env.trainer.best_mse)
+        best_mse = str(round(self.env.trainer.best_mse, 4))
         self.current_epoch_label.configure(text="Current Epoch: " + current_epoch)
         self.current_mse_label.configure(text="Current MSE: " + mse)
         self.best_mse_label.configure(text="Best MSE: " + best_mse)
