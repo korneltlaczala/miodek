@@ -67,7 +67,7 @@ class Trainer():
     def train_in_app(self, epochs, learning_rate=None, report_interval=5e3, auto_save=False):
         self.setup_training(learning_rate=learning_rate, report_interval=report_interval)
         for i in range(int(epochs)):
-            self.train_step(learning_rate=self.learning_rate, auto_save=auto_save)
+            self.train_step(learning_rate=self.learning_rate)
         if auto_save:
             self.save_best()
 
@@ -147,6 +147,7 @@ class Trainer():
             self.name = name
         path = f'trainers/{name}.pkl'
         self.tester.run()
+        self.update_init_model()
         with open(path, 'wb') as file:
             pickle.dump(self, file, pickle.HIGHEST_PROTOCOL)
         print(f"Trainer (age: {self.current_epoch}) saved as {name}.\t mse: {round(self.mse, 2)}")

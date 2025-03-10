@@ -130,9 +130,9 @@ class ResultFrame(ctk.CTkFrame):
 
     def fill(self):
         self.fit_frame = ctk.CTkFrame(self)
-        self.fit_frame.pack(padx=5, pady=5, fill='both')
-        self.history_frame = ctk.CTkFrame(self)
-        self.history_frame.pack(padx=5, pady=5, fill='both')
+        self.fit_frame.pack(padx=5, pady=5, fill='both', expand=True)
+        # self.history_frame = ctk.CTkFrame(self)
+        # self.history_frame.pack(padx=5, pady=5, fill='both')
 
         self.fit_frame.grid_columnconfigure(0, weight=1)
         self.fit_frame.grid_columnconfigure(1, weight=1)
@@ -234,7 +234,7 @@ class TrainingEnvironment():
                            learning_rate=self.learning_rate,
                            report_interval=self.report_interval)
         self.app.trainer_frame.update_progress_frame()
-        self.app.results_frame.update_result_frame()
+        self.app.result_frame.update()
 
     def save_last(self):
         self.trainer.save(self.get_new_trainer_name())
@@ -250,7 +250,7 @@ class TrainingEnvironment():
 
     def update_app(self):
         self.app.trainer_frame.update_progress_frame()
-        self.app.results_frame.update()
+        self.app.result_frame.update()
 
     def get_new_trainer_name(self):
         return self.app.trainer_frame.trainer_name_entry.get()
