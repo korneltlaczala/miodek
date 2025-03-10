@@ -6,24 +6,25 @@ from models import *
 def run():
     data_file = "data/square-simple-test.csv"
     # trainer_name = "trainer_square_2000"
-    # trainer_name = "trainer_square"
-    trainer_name = "trainer_app"
+    trainer_name = "trainer_square"
+    # trainer_name = "trainer_app"
     # data_file = "data/multimodal-large-test.csv"
     # trainer_name = "trainer_multimodal"
     # model = MLP(1, [16, 30, 16], 1)
     # trainer = Trainer(model, data_file, name=trainer_name)
     trainer = Trainer.load(trainer_name)
     trainer.test()
-    trainer.train(epochs=5e4, learning_rate=0.1, auto_save=True)
+    trainer.train(epochs=1e4, learning_rate=0.1, auto_save=True)
     trainer.ask_for_save(trainer_name)
 
 class Trainer():
 
-    def __init__(self, model, data_file, learning_rate=0.001, name="default_trainer"):
-        self.model = model
+    def __init__(self, model, data_file, learning_rate=0.001, report_interval=1e3, name="default_trainer"):
         self.data_file = data_file
-        self.tester = Tester(model=model, data_file=data_file)
+        self.tester = Tester(data_file=data_file)
+        self.set_model(model)
         self.learning_rate = learning_rate
+        self.report_interval = report_interval
         self.name = name
         self.prepare_data()
         self.initialize_model()
@@ -32,56 +33,76 @@ class Trainer():
         initializer = RandomInitializer()
         initializer.initialize(self.model)
         self.tester.run()
-        self.best_mse = self.tester.mse
         self.current_epoch = 0
-
+        self.best_mse = float('inf')
+        self.update_best_model()
+        
     def prepare_data(self):
         self.tester.set_data_file(self.data_file)
         self.df = pd.read_csv(self.data_file)
         self.X = np.array([self.df["x"]])
         self.y = np.array([self.df["y"]])
 
+    def set_model(self, model):
+        self.model = model
+        self.tester.set_model(model)
+        self.evaluate_model()
+
+    def evaluate_model(self):
+        self.tester.set_not_ready()
+        self.tester.run()
+
     def train(self, epochs, learning_rate=None, report_interval=5e3, auto_save=True):
         self.setup_training(learning_rate=learning_rate, report_interval=report_interval)
         self.report(starting=True)
         self.plot()
         for i in range(int(epochs)):
-            self.train_step(learning_rate=self.learning_rate, auto_save=auto_save)
+            self.train_step(learning_rate=self.learning_rate)
             self.report()
         self.plot()
+        if auto_save:
+            self.save_best()
+
+    def train_in_app(self, epochs, learning_rate=None, report_interval=5e3, auto_save=True):
+        self.setup_training(learning_rate=learning_rate, report_interval=report_interval)
+        for i in range(int(epochs)):
+            self.train_step(learning_rate=self.learning_rate, auto_save=auto_save)
+        if auto_save:
+            self.save_best()
 
     def setup_training(self, learning_rate, report_interval):
         if learning_rate is not None:
             self.learning_rate = learning_rate
-        self.tester.run()
-        self.best_mse = self.tester.mse
         self.report_interval = report_interval
+        self.init_model = self.model.get_copy()
+        self.init_model_age = self.current_epoch
+        self.best_mse_before_init = self.best_mse
+        self.best_model_before_init = self.best_model.get_copy()
+        self.best_model_before_init_age = self.best_model_age
 
-    def train_step(self, learning_rate, auto_save):
+    def train_step(self, learning_rate):
             self.model.backprop(x=self.X, y_true=self.y, learning_rate=learning_rate)
-            self.tester.set_not_ready()
-            self.tester.run()
+            self.evaluate_model()
             self.current_epoch += 1
-            if auto_save:
-                self.save_best()
+            self.update_best_model()
 
-
-    def save_best(self):
+    def update_best_model(self):
         if self.tester.mse < self.best_mse:
             self.best_mse = self.tester.mse
-            self.save(name=self.name)
-            
+            self.best_model = self.model.get_copy()
+            self.best_model_age = self.current_epoch
+            print(f"new best, epoch: {self.current_epoch}\t\tmse: {round(self.tester.mse, 2)}")
+
     def report(self, starting=False):
         if starting:
             self.report_start()
-        if self.current_epoch % self.report_interval== 0:
+        if self.current_epoch % self.report_interval == 0:
             print(f"epoch: {self.current_epoch}\t\tmse: {round(self.tester.mse, 2)}")
 
     def report_start(self):
         print("----------------------")
         print(f"Starting training")
-        print(f"model age: {self.current_epoch} of {self.target_epoch} epochs")
-        print(f"epochs to go: {self.target_epoch - self.current_epoch}")
+        print(f"model age: {self.current_epoch} epochs")
         print(f"starting mse: {self.tester.mse}")
         print("----------------------")
 
@@ -89,12 +110,30 @@ class Trainer():
         self.report()
         self.plot()
 
-    def report(self):
-        self.tester.report()
-
     def plot(self):
         plt = self.tester.plot(linear=True)
         plt.show()
+
+    def undo_training(self):
+        self.set_model(self.init_model)
+        self.current_epoch = self.init_model_age
+        self.best_mse = self.best_mse_before_init
+        self.best_model = self.best_model_before_init.get_copy()
+        self.best_model_age = self.best_model_before_init_age
+
+    def save_with_best_model(self, name=None):
+        print(f"are models the same: {self.model == self.best_model}")
+        print("saving with best model")
+        self.set_model(self.best_model)
+        self.current_epoch = self.best_model_age
+        print(f"are models the same: {self.model == self.best_model}")
+        # print(f"tester mse: {self.tester.mse}")
+        # print(f"best model mse: {self.best_mse}")
+        self.save(name)
+
+    def save_best(self):
+        saved_trainer = self.get_copy()
+        saved_trainer.save_with_best_model()
 
     def save(self, name=None):
         if name == None:
@@ -115,6 +154,9 @@ class Trainer():
             self.save(name)
         else:
             print("Trainer not saved")
+
+    def get_copy(self):
+        return copy.deepcopy(self)
     
     @classmethod
     def load(self, name):

@@ -14,7 +14,7 @@ class App:
         self.DATA_DIR = os.path.join(self.BASE_DIR, "data")
         self.MODEL_DIR = os.path.join(self.BASE_DIR, "models")
 
-        self.env = TrainingEnvironment(self, trainer_name, epochs=5e4, learning_rate=0.1, report_interval=1000)
+        self.env = TrainingEnvironment(self, trainer_name, epochs=1e4, learning_rate=0.1, report_interval=1000)
         # self.env = TrainingEnvironment.load()
         self.trainer_frame = TrainerFrame(self.root, self)
         self.trainer_frame.pack(side='top', expand=False, fill='both', padx=5, pady=5)
@@ -35,24 +35,28 @@ class TrainerFrame(ctk.CTkFrame):
         self.command_frame = ctk.CTkFrame(self)
         self.progress_frame = ctk.CTkFrame(self)
         self.settings_frame = ctk.CTkFrame(self)
-        self.button_frame = ctk.CTkFrame(self)
         self.command_frame.grid(row=0, column=0, rowspan=2, padx=5, pady=5, sticky='nsew')
         self.progress_frame.grid(row=0, column=1, rowspan=2, padx=5, pady=5, sticky='nsew')
         self.settings_frame.grid(row=0, column=2, padx=5, pady=5, sticky='nsew')
-        self.button_frame.grid(row=1, column=2, padx=5, pady=5, sticky='nsew')
         
         self.fill_command_frame()
         self.fill_progress_frame()
         self.fill_settings_frame()
-        self.fill_button_frame()
 
     def fill_command_frame(self):
         self.trainer_name_entry = ctk.CTkEntry(self.command_frame, placeholder_text="Trainer Name", font=("Helvetica", 16))
         self.trainer_name_entry.grid(row=0, column=0, columnspan=2, padx=5, pady=5, sticky='nsew')
-        self.save_button = ctk.CTkButton(self.command_frame, text="Save Trainer", command=self.env.save_trainer)
-        self.save_button.grid(row=1, column=0, padx=5, pady=5, sticky='nsew')
-        self.restore_button = ctk.CTkButton(self.command_frame, text="Restore Trainer", command=self.env.restore_trainer)
-        self.restore_button.grid(row=1, column=1, padx=5, pady=5, sticky='nsew')
+
+        self.undo_training_button = ctk.CTkButton(self.command_frame, text="Undo Training", command=self.env.undo_training)
+        self.train_button = ctk.CTkButton(self.command_frame, text="Train", command=self.env.train)
+        self.undo_training_button.grid(row=1, column=0, padx=5, pady=5, sticky='nsew')
+        self.train_button.grid(row=1, column=1, padx=5, pady=5)
+
+        self.save_best_button = ctk.CTkButton(self.command_frame, text="Save Best", command=self.env.save_best)
+        self.save_last_button = ctk.CTkButton(self.command_frame, text="Save Last", command=self.env.save_last)
+        self.save_best_button.grid(row=2, column=0, padx=5, pady=5, sticky='nsew')
+        self.save_last_button.grid(row=2, column=1, padx=5, pady=5, sticky='nsew')
+
         self.update_command_frame()
 
     def fill_progress_frame(self):
@@ -75,10 +79,6 @@ class TrainerFrame(ctk.CTkFrame):
 
         self.update_settings_frame()
 
-    def fill_button_frame(self):
-        self.train_button = ctk.CTkButton(self.button_frame, text="Train", command=self.env.start_training)
-        self.train_button.pack(side='left', padx=5, pady=5, fill='x')
- 
     def update_command_frame(self):
         self.trainer_name_entry.delete(0, 'end')
         self.trainer_name_entry.insert(0, self.env.trainer_name)
@@ -134,22 +134,23 @@ class ResultFrame(ctk.CTkFrame):
         self.history_frame = ctk.CTkFrame(self)
         self.history_frame.pack(padx=5, pady=5, fill='both')
 
-        self.old_fit_canvas = FigureCanvasTkAgg(self.get_fit_fig(), master=self.fit_frame)
-        self.new_fit_canvas = FigureCanvasTkAgg(self.get_fit_fig(), master=self.fit_frame)
-        self.update_old_fit()
+        self.init_fit_canvas = FigureCanvasTkAgg(master=self.fit_frame)
+        self.best_fit_canvas = FigureCanvasTkAgg(master=self.fit_frame)
+        self.last_fit_canvas = FigureCanvasTkAgg(master=self.fit_frame)
+        self.init_fit_canvas.get_tk_widget().pack(side='left', fill='both', expand=True)
+        self.best_fit_canvas.get_tk_widget().pack(side='right', fill='both', expand=True)
+        self.update_init_fit()
         self.update_new_fit()
 
-    def update_old_fit(self):
-        self.old_fit_canvas.get_tk_widget().destroy()
-        self.old_fit_canvas = FigureCanvasTkAgg(self.get_fit_fig(), master=self.fit_frame)
-        self.old_fit_canvas.draw()
-        self.old_fit_canvas.get_tk_widget().pack(side='left', fill='both', expand=True)
+    def update_init_fit(self):
+        self.init_fit_canvas.figure.clear()
+        self.init_fit_canvas.figure = self.get_fit_fig()
+        self.init_fit_canvas.draw()
 
     def update_new_fit(self):
-        self.new_fit_canvas.get_tk_widget().destroy()
-        self.new_fit_canvas = FigureCanvasTkAgg(self.get_fit_fig(), master=self.fit_frame)
-        self.new_fit_canvas.draw()
-        self.new_fit_canvas.get_tk_widget().pack(side='right', fill='both', expand=True)
+        self.best_fit_canvas.figure.clear()
+        self.best_fit_canvas.figure = self.get_fit_fig()
+        self.best_fit_canvas.draw()
     
     def get_fit_fig(self):
         return self.env.trainer.tester.get_fig(linear=True)
@@ -194,16 +195,21 @@ class TrainingEnvironment():
         self.epochs = self.epoch_multiplier * self.epoch_oom
         self.app.trainer_frame.update_settings_frame()
 
-    def start_training(self):
-        self.app.trainer.train(epochs=self.new_epochs,
-                               learning_rate=self.learning_rate,
-                               report_interval=self.report_interval)
+    def train(self):
+        self.trainer.train_in_app(epochs=self.epochs,
+                           learning_rate=self.learning_rate,
+                           report_interval=self.report_interval)
+        self.app.trainer_frame.update_progress_frame()
+        self.app.results_frame.update_result_frame()
 
-    def save_trainer(self):
+    def save_last(self):
         new_name = self.app.trainer_frame.trainer_name_entry.get()
         self.trainer.save(new_name)
 
-    def restore_trainer(self):
+    def save_best(self):
+        pass
+
+    def undo_training(self):
         self.trainer = Trainer.load(self.trainer_name)
         self.trainer_frame.destroy()
         self.trainer_frame = TrainerFrame(self.root, self, self.app.trainer)
@@ -222,5 +228,6 @@ class TrainingEnvironment():
             return pickle.load(file)
         
 if __name__ == "__main__":
-    App(trainer_name="trainer_app")
+    App(trainer_name="trainer_square")
+    # App(trainer_name="trainer_app")
 #   # App()
