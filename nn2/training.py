@@ -3,19 +3,6 @@ from abc import abstractmethod
 import numpy as np
 from models import *
 
-def run():
-    data_file = "data/square-simple-test.csv"
-    # trainer_name = "trainer_square_2000"
-    trainer_name = "trainer_square"
-    # trainer_name = "trainer_app"
-    # data_file = "data/multimodal-large-test.csv"
-    # trainer_name = "trainer_multimodal"
-    # model = MLP(1, [16, 30, 16], 1)
-    # trainer = Trainer(model, data_file, name=trainer_name)
-    trainer = Trainer.load(trainer_name)
-    trainer.test()
-    trainer.train(epochs=1e4, learning_rate=0.1, auto_save=True)
-    trainer.ask_for_save(trainer_name)
 
 class Trainer():
 
@@ -201,6 +188,25 @@ class RandomInitializer(Initializer):
         for layer in model.layers:
             layer.set_biases(np.random.uniform(0, 1, size=layer.get_biases_shape()))
 
+def run():
+    data_file = "data/square-simple-training.csv"
+    trainer_name = "train_trainer"
+    # trainer_name = "trainer_app"
+    # data_file = "data/multimodal-large-test.csv"
+    # trainer_name = "trainer_multimodal"
+    # model = MLP(1, [16, 30, 16], 1)
+    # trainer = Trainer(model, data_file, name=trainer_name)
+    trainer = Trainer.load(trainer_name)
+    trainer.test()
+    trainer.train(epochs=1e5, learning_rate=0.001, auto_save=True)
+    trainer.ask_for_save(trainer_name)
+
+def test():
+    data_file = "data/square-simple-test.csv"
+    trainer_name = "final_trainer"
+    trainer = Trainer.load(trainer_name)
+    trainer.test()
 
 if __name__ == "__main__":
     run()
+    # test()

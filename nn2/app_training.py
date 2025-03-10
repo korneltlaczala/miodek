@@ -268,6 +268,7 @@ class TrainingEnvironment():
             return pickle.load(file)
         
 if __name__ == "__main__":
-    App(trainer_name="trainer_square")
+    App(trainer_name="final_trainer")
+    # App(trainer_name="trainer_square")
     # App(trainer_name="trainer_app")
 #   # App()
