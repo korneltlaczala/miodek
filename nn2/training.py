@@ -36,6 +36,7 @@ class Trainer():
         self.current_epoch = 0
         self.best_mse = float('inf')
         self.update_best_model()
+        self.update_init_model()
         
     def prepare_data(self):
         self.tester.set_data_file(self.data_file)
@@ -63,7 +64,7 @@ class Trainer():
         if auto_save:
             self.save_best()
 
-    def train_in_app(self, epochs, learning_rate=None, report_interval=5e3, auto_save=True):
+    def train_in_app(self, epochs, learning_rate=None, report_interval=5e3, auto_save=False):
         self.setup_training(learning_rate=learning_rate, report_interval=report_interval)
         for i in range(int(epochs)):
             self.train_step(learning_rate=self.learning_rate, auto_save=auto_save)
@@ -74,11 +75,7 @@ class Trainer():
         if learning_rate is not None:
             self.learning_rate = learning_rate
         self.report_interval = report_interval
-        self.init_model = self.model.get_copy()
-        self.init_model_age = self.current_epoch
-        self.best_mse_before_init = self.best_mse
-        self.best_model_before_init = self.best_model.get_copy()
-        self.best_model_before_init_age = self.best_model_age
+        self.update_init_model()
 
     def train_step(self, learning_rate):
             self.model.backprop(x=self.X, y_true=self.y, learning_rate=learning_rate)
@@ -87,23 +84,32 @@ class Trainer():
             self.update_best_model()
 
     def update_best_model(self):
-        if self.tester.mse < self.best_mse:
-            self.best_mse = self.tester.mse
+        if self.mse < self.best_mse:
+            self.best_mse = self.mse
             self.best_model = self.model.get_copy()
             self.best_model_age = self.current_epoch
-            print(f"new best, epoch: {self.current_epoch}\t\tmse: {round(self.tester.mse, 2)}")
+            print(f"new best, epoch: {self.current_epoch}\t\tmse: {round(self.mse, 2)}")
+
+    def update_init_model(self):
+        self.init_mse = self.mse
+        self.init_model = self.model.get_copy()
+        self.init_model_age = self.current_epoch
+        self.best_mse_before_init = self.best_mse
+        self.best_model_before_init = self.best_model.get_copy()
+        self.best_model_before_init_age = self.best_model_age
+
 
     def report(self, starting=False):
         if starting:
             self.report_start()
         if self.current_epoch % self.report_interval == 0:
-            print(f"epoch: {self.current_epoch}\t\tmse: {round(self.tester.mse, 2)}")
+            print(f"epoch: {self.current_epoch}\t\tmse: {round(self.mse, 2)}")
 
     def report_start(self):
         print("----------------------")
         print(f"Starting training")
         print(f"model age: {self.current_epoch} epochs")
-        print(f"starting mse: {self.tester.mse}")
+        print(f"starting mse: {self.mse}")
         print("----------------------")
 
     def test(self):
@@ -114,6 +120,10 @@ class Trainer():
         plt = self.tester.plot(linear=True)
         plt.show()
 
+    def get_fig(self, model):
+        tester = Tester(model=model, data_file=self.data_file)
+        return tester.get_fig(linear=True)
+
     def undo_training(self):
         self.set_model(self.init_model)
         self.current_epoch = self.init_model_age
@@ -122,13 +132,8 @@ class Trainer():
         self.best_model_age = self.best_model_before_init_age
 
     def save_with_best_model(self, name=None):
-        print(f"are models the same: {self.model == self.best_model}")
-        print("saving with best model")
         self.set_model(self.best_model)
         self.current_epoch = self.best_model_age
-        print(f"are models the same: {self.model == self.best_model}")
-        # print(f"tester mse: {self.tester.mse}")
-        # print(f"best model mse: {self.best_mse}")
         self.save(name)
 
     def save_best(self):
@@ -144,7 +149,7 @@ class Trainer():
         self.tester.run()
         with open(path, 'wb') as file:
             pickle.dump(self, file, pickle.HIGHEST_PROTOCOL)
-        print(f"Trainer (age: {self.current_epoch}) saved as {name}.\t mse: {round(self.tester.mse, 2)}")
+        print(f"Trainer (age: {self.current_epoch}) saved as {name}.\t mse: {round(self.mse, 2)}")
 
     def ask_for_save(self, name):
         response = None
@@ -163,6 +168,10 @@ class Trainer():
         path = f'trainers/{name}.pkl'
         with open(path, 'rb') as file:
             return pickle.load(file)
+
+    @property
+    def mse(self):
+        return self.tester.get_mse()
 
 class Initializer():
 

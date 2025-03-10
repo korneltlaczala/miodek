@@ -134,26 +134,60 @@ class ResultFrame(ctk.CTkFrame):
         self.history_frame = ctk.CTkFrame(self)
         self.history_frame.pack(padx=5, pady=5, fill='both')
 
+        self.fit_frame.grid_columnconfigure(0, weight=1)
+        self.fit_frame.grid_columnconfigure(1, weight=1)
+        self.fit_frame.grid_columnconfigure(2, weight=1)
+
         self.init_fit_canvas = FigureCanvasTkAgg(master=self.fit_frame)
         self.best_fit_canvas = FigureCanvasTkAgg(master=self.fit_frame)
         self.last_fit_canvas = FigureCanvasTkAgg(master=self.fit_frame)
-        self.init_fit_canvas.get_tk_widget().pack(side='left', fill='both', expand=True)
-        self.best_fit_canvas.get_tk_widget().pack(side='right', fill='both', expand=True)
-        self.update_init_fit()
-        self.update_new_fit()
+        self.init_fit_canvas.get_tk_widget().grid(row=0, column=0, padx=5, pady=5, sticky='nsew')
+        self.best_fit_canvas.get_tk_widget().grid(row=0, column=1, padx=5, pady=5, sticky='nsew')
+        self.last_fit_canvas.get_tk_widget().grid(row=0, column=2, padx=5, pady=5, sticky='nsew')
 
-    def update_init_fit(self):
-        self.init_fit_canvas.figure.clear()
-        self.init_fit_canvas.figure = self.get_fit_fig()
-        self.init_fit_canvas.draw()
+        # self.init_fit_info_frame = ctk.CTkFrame(self.fit_frame)
+        # self.best_fit_info_frame = ctk.CTkFrame(self.fit_frame)
+        # self.last_fit_info_frame = ctk.CTkFrame(self.fit_frame)
 
-    def update_new_fit(self):
-        self.best_fit_canvas.figure.clear()
-        self.best_fit_canvas.figure = self.get_fit_fig()
-        self.best_fit_canvas.draw()
-    
-    def get_fit_fig(self):
-        return self.env.trainer.tester.get_fig(linear=True)
+        self.init_fit_label = ctk.CTkLabel(self.fit_frame, text="Model before training", font=("Helvetica", 18, "bold"), anchor='w')
+        self.best_fit_label = ctk.CTkLabel(self.fit_frame, text="Best model so far", font=("Helvetica", 18, "bold"), anchor='w')
+        self.last_fit_label = ctk.CTkLabel(self.fit_frame, text="Model after training", font=("Helvetica", 18, "bold"), anchor='w')
+        self.init_fit_label.grid(row=1, column=0, padx=20, pady=10, sticky='nsew')
+        self.best_fit_label.grid(row=1, column=1, padx=20, pady=10, sticky='nsew')
+        self.last_fit_label.grid(row=1, column=2, padx=20, pady=10, sticky='nsew')
+
+        self.init_fit_epoch_label = ctk.CTkLabel(self.fit_frame, anchor='w')
+        self.best_fit_epoch_label = ctk.CTkLabel(self.fit_frame, anchor='w')
+        self.last_fit_epoch_label = ctk.CTkLabel(self.fit_frame, anchor='w')
+        self.init_fit_epoch_label.grid(row=3, column=0, padx=20, pady=2, sticky='nsew')
+        self.best_fit_epoch_label.grid(row=3, column=1, padx=20, pady=2, sticky='nsew')
+        self.last_fit_epoch_label.grid(row=3, column=2, padx=20, pady=2, sticky='nsew')
+
+        self.init_fit_mse_label = ctk.CTkLabel(self.fit_frame, anchor='w')
+        self.best_fit_mse_label = ctk.CTkLabel(self.fit_frame, anchor='w')
+        self.last_fit_mse_label = ctk.CTkLabel(self.fit_frame, anchor='w')
+        self.init_fit_mse_label.grid(row=4, column=0, padx=20, pady=2, sticky='nsew')
+        self.best_fit_mse_label.grid(row=4, column=1, padx=20, pady=2, sticky='nsew')
+        self.last_fit_mse_label.grid(row=4, column=2, padx=20, pady=2, sticky='nsew')
+
+        self.update()
+
+    def update_canvas(self, canvas, model):
+        canvas.figure.clear()
+        canvas.figure = self.env.trainer.get_fig(model)
+        canvas.draw()
+
+    def update(self):
+        self.update_canvas(self.init_fit_canvas, self.env.trainer.init_model)
+        self.update_canvas(self.best_fit_canvas, self.env.trainer.best_model)
+        self.update_canvas(self.last_fit_canvas, self.env.trainer.model)
+
+        self.init_fit_epoch_label.configure(text=f"Epoch:\t {self.env.trainer.init_model_age}")
+        self.best_fit_epoch_label.configure(text=f"Epoch:\t {self.env.trainer.best_model_age}")
+        self.last_fit_epoch_label.configure(text=f"Epoch:\t{self.env.trainer.current_epoch}")
+        self.init_fit_mse_label.configure(text=f"MSE:\t{round(self.env.trainer.init_mse, 2)}")
+        self.best_fit_mse_label.configure(text=f"MSE:\t{round(self.env.trainer.best_mse, 2)}")
+        self.last_fit_mse_label.configure(text=f"MSE:\t{round(self.env.trainer.mse, 2)}")
 
     @property
     def env(self):
@@ -203,17 +237,23 @@ class TrainingEnvironment():
         self.app.results_frame.update_result_frame()
 
     def save_last(self):
-        new_name = self.app.trainer_frame.trainer_name_entry.get()
-        self.trainer.save(new_name)
+        self.trainer.save(self.get_new_trainer_name())
+        self.update_app()
 
     def save_best(self):
-        pass
+        self.trainer.save_with_best_model(self.get_new_trainer_name())
+        self.update_app()
 
     def undo_training(self):
-        self.trainer = Trainer.load(self.trainer_name)
-        self.trainer_frame.destroy()
-        self.trainer_frame = TrainerFrame(self.root, self, self.app.trainer)
-        self.trainer_frame.pack(side='top', expand=False, fill='both', padx=5, pady=5)
+        self.trainer.undo_training()
+        self.update_app()
+
+    def update_app(self):
+        self.app.trainer_frame.update_progress_frame()
+        self.app.results_frame.update()
+
+    def get_new_trainer_name(self):
+        return self.app.trainer_frame.trainer_name_entry.get()
 
     def save(self):
         trainer = self.trainer

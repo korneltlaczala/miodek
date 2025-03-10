@@ -166,25 +166,30 @@ class Tester():
     def __init__(self, data_file=None, df=None, model=None):
         self.data_file = data_file
         if self.data_file is not None:
-            self.df = pd.read_csv(self.data_file)
+            self.set_data_file(data_file)
         else:
             self.df = df
         self.model = model
         self.ready = False
 
     def set_data_file(self, data_file):
-        if self.data_file is data_file:
-            return
-        self.data_file = data_file
         self.df = pd.read_csv(data_file)
-        self.ready = False
+        self.prepare_data()
+        if self.data_file != data_file:
+            self.ready = False
+            self.data_file = data_file
 
     def set_df(self, df):
         if self.df is df:
             return
         self.df = df
+        self.prepare_data()
         self.data_file = None
         self.ready = False
+
+    def prepare_data(self):
+        self.x = np.array([self.df["x"]])
+        self.y = np.array([self.df["y"]])
 
     def set_model(self, model):
         if self.model is model:
@@ -200,8 +205,6 @@ class Tester():
             self.ready = False
             return False
 
-        self.x = np.array([self.df["x"]])
-        self.y = np.array([self.df["y"]])
         self.y_pred = self.model.forward(self.x)
         self.mse = self.calculate_mse()
         self.ready = True
@@ -219,6 +222,11 @@ class Tester():
 
     def set_not_ready(self):
         self.ready = False
+
+    def get_mse(self):
+        if not self.run():
+            return None
+        return self.mse
 
     def plot(self, linear=False):
         if linear:
