@@ -50,9 +50,56 @@ class DataSet():
         return df
 
     def plot(self):
-        plt.scatter(self.X_train, self.y_train, color="blue")
-        plt.scatter(self.X_test, self.y_test, color="red")
+        plt.scatter(self.X_train[:, 0], self.y_train, color="blue")
+        plt.scatter(self.X_test[:, 0], self.y_test, color="red")
         plt.show()
+
+
+class Layer():
+
+    def __init__(self, neurons_in, neurons_out, activation_func, index=None):
+        self.neurons_in = neurons_in
+        self.neurons_out = neurons_out
+        self.activation_func = activation_func
+        self.index = index
+        self.gradient_clip_treshold = 1
+
+        self.weights = np.zeros((neurons_in, neurons_out))
+        self.biases = np.zeros(neurons_out)
+
+        self.z = None
+        self.a = None
+        self.errors = None
+
+    def forward(self, X, save):
+        z = np.dot(X, self.weights) + self.biases
+        a = self.activation_func.activate(z)
+        if save:
+            self.z = z
+            self.a = a
+        return a
+
+    # def backward(self, next_layer):
+    def set_weigths(self, weights):
+        self.weights = weights
+    
+    def set_biases(self, biases):
+        self.biases = biases
+
+
+    @property
+    def name(self):
+        return f"Layer {self.index}"
+
+    def __str__(self):
+        output = f"{self.name}: {self.neurons_in} -> {self.neurons_out}\n"
+        for i in range(self.neurons_out):
+            output += f"\tNeuron {i}:"
+            output += f"\t\tWeights: {self.weights[:, i]}"
+            output += f"\t\tBias: {self.biases[i]}"
+        output += "\n"
+        return output
+
 
 class MLP():
 
@@ -62,6 +109,7 @@ class MLP():
 
         self.activation_func = Sigmoid()
         self.last_layer_activation_func = Linear()
+
 
 if __name__ == "__main__":
     run.main()
