@@ -20,8 +20,6 @@ class DataSet():
         self.name = name
         self.read_data()
         self.scale_data()
-        self.plot()
-        print(f"X_train 1st: {self.X_train[0, 0]}")
 
     def read_data(self):
         train_set_name = f"{self.name}-training.csv"
@@ -50,11 +48,26 @@ class DataSet():
         df = df.drop(columns=["Unnamed: 0", "id"], errors="ignore")
         return df
 
-    def plot(self):
-        print(f"X_train shape: {self.X_train.shape}")
-        print(f"y_train shape: {self.y_train.shape}")
+    def evaluate_train(self, y_pred_train):
+        return self._evaluate(self.y_train, y_pred_train)
+
+    def evaluate_test(self, y_pred_test):
+        return self._evaluate(self.y_test, y_pred_test)
+
+    def _evaluate(self, y_true, y_pred):
+        y_true_denormalized = self.y_scaler.inverse_transform(y_true)
+        y_pred_denormalized = self.y_scaler.inverse_transform(y_pred)
+        mse = np.mean((y_true_denormalized - y_pred_denormalized) ** 2)
+        return mse
+
+    def plot_true(self):
         plt.scatter(self.X_train[:, 0], self.y_train, color="blue")
         plt.scatter(self.X_test[:, 0], self.y_test, color="red")
+        plt.show()
+
+    def plot_test(self, y_pred_test):
+        plt.scatter(self.X_test[:, 0], self.y_test, color="blue")
+        plt.scatter(self.X_test[:, 0], y_pred_test, color="red")
         plt.show()
 
 
@@ -75,7 +88,6 @@ class Layer():
         self.errors = None
 
     def forward(self, X, save):
-        print(f"X shape: {X.shape}")
         z = np.dot(X, self.weights) + self.biases
         a = self.activation_func.activate(z)
         if save:
@@ -83,13 +95,21 @@ class Layer():
             self.a = a
         return a
 
-    # def backward(self, next_layer):
+    def backward(self, next_layer):
+        weight_sums = np.dot(next_layer.e, next_layer.weights.T)
+        self.e = weight_sums * self.activation_func.derivative(self.z)
+
+    def update(self, prev_layer, learning_rate):
+        batch_size = prev_layer.a.shape[0]
+        gradient = np.dot(prev_layer.a.T, self.e) / batch_size
+        self.weights -= learning_rate * gradient
+        self.biases -= learning_rate * np.mean(self.e, axis=0)
+
     def set_weigths(self, weights):
         self.weights = weights
     
     def set_biases(self, biases):
         self.biases = biases
-
 
     @property
     def name(self):
@@ -106,13 +126,17 @@ class Layer():
 
 
 class FirstLayer(Layer):
-    def update(self, preve_layer, learning_rate):
-        pass
+    def update(self, prev_layer, learning_rate):
+        batch_size = prev_layer.shape[0]
+        gradient = np.dot(prev_layer.T, self.e) / batch_size
+        self.weights -= learning_rate * gradient
+        self.biases -= learning_rate * np.mean(self.e, axis=0)
 
 
 class LastLayer(Layer):
     def backward(self, y_true):
-        pass
+        errors = self.a - y_true
+        self.e = errors * self.activation_func.derivative(self.z)
 
 
 class MLP():
@@ -141,10 +165,6 @@ class MLP():
                                      activation_func=self.last_layer_activation_func,
                                      index=len(self.architecture.layers)))
 
-    def forward(self, save=True):
-        X = self.data.X_train
-        return self._forward(X, save)
-
     def _forward(self, X, save):
         for layer in self.layers:
             X = layer.forward(X, save=save)
@@ -152,8 +172,77 @@ class MLP():
             self.y_pred = X
         return X
 
-    def predict(self):
-        return self.forward(X, save=False)
+    def forward_train(self):
+        X = self.data.X_train
+        return self._forward(X=X, save=False)
+
+    def predict_train(self):
+        X = self.data.X_train
+        return self._forward(X=X, save=False)
+
+    def predict_test(self):
+        X = self.data.X_test
+        return self._forward(X=X, save=False)
+
+    def backprop(self, X, y_true, learning_rate):
+        self._forward(X=X, save=True)
+        self.backward(y_true)
+        self.update(X, learning_rate)
+
+    def backward(self, y_true):
+        next_layer = y_true
+        for layer in reversed(self.layers):
+            layer.backward(next_layer)
+            next_layer = layer
+
+    def update(self, X, learning_rate):
+        prev_layer = X
+        for layer in self.layers:
+            layer.update(prev_layer, learning_rate)
+            prev_layer = layer
+
+    def train(self, epochs, learning_rate):
+        for epoch in range(epochs):
+            X = self.data.X_train
+            y_true = self.data.y_train
+            self.backprop(X=X, y_true=y_true, learning_rate=learning_rate)
+            if (epoch + 1) % 100 == 0:
+                print(f"Epoch: {epoch + 1}")
+                self.evaluate()
+
+    def evaluate(self):
+        y_pred_train = self.predict_train()
+        y_pred_test = self.predict_test()
+        mse_train = self.data.evaluate_train(y_pred_train)
+        mse_test = self.data.evaluate_test(y_pred_test)
+        print(f"MSE on train set: {mse_train}")
+        print(f"MSE on test set: {mse_test}")
+
+    def plot(self):
+        y_pred_test = self.predict_test()
+        self.data.plot_test(y_pred_test)
+
+
+class Initializer():
+    def initialize(self, model):
+        self.initialize_weights(model)
+        self.initialize_biases(model)
+
+    def initialize_weights(self, model):
+        raise NotImplementedError
+
+    def initialize_biases(self, model):
+        raise NotImplementedError
+
+
+class NormalInitializer(Initializer):
+    def initialize_weights(self, model):
+        for layer in model.layers:
+            layer.weights = np.random.normal(size=(layer.neurons_in, layer.neurons_out))
+
+    def initialize_biases(self, model):
+        for layer in model.layers:
+            layer.biases = np.random.normal(size=(layer.neurons_out))
 
 
 if __name__ == "__main__":
