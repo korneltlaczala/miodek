@@ -21,6 +21,7 @@ class DataSet():
         self.read_data()
         self.scale_data()
         self.plot()
+        print(f"X_train 1st: {self.X_train[0, 0]}")
 
     def read_data(self):
         train_set_name = f"{self.name}-training.csv"
@@ -50,6 +51,8 @@ class DataSet():
         return df
 
     def plot(self):
+        print(f"X_train shape: {self.X_train.shape}")
+        print(f"y_train shape: {self.y_train.shape}")
         plt.scatter(self.X_train[:, 0], self.y_train, color="blue")
         plt.scatter(self.X_test[:, 0], self.y_test, color="red")
         plt.show()
@@ -72,6 +75,7 @@ class Layer():
         self.errors = None
 
     def forward(self, X, save):
+        print(f"X shape: {X.shape}")
         z = np.dot(X, self.weights) + self.biases
         a = self.activation_func.activate(z)
         if save:
@@ -101,6 +105,16 @@ class Layer():
         return output
 
 
+class FirstLayer(Layer):
+    def update(self, preve_layer, learning_rate):
+        pass
+
+
+class LastLayer(Layer):
+    def backward(self, y_true):
+        pass
+
+
 class MLP():
 
     def __init__(self, architecture, dataset_name):
@@ -109,6 +123,37 @@ class MLP():
 
         self.activation_func = Sigmoid()
         self.last_layer_activation_func = Linear()
+        self.generate_layers()
+
+    def generate_layers(self):
+        self.layers = []
+        self.layers.append(FirstLayer(neurons_in=self.architecture.inputs,
+                                      neurons_out=self.architecture.layers[0],
+                                      activation_func=self.activation_func,
+                                      index=0))
+        for i in range(1, len(self.architecture.layers)):
+            self.layers.append(Layer(neurons_in=self.architecture.layers[i-1],
+                                     neurons_out=self.architecture.layers[i],
+                                     activation_func=self.activation_func,
+                                     index=i))
+        self.layers.append(LastLayer(neurons_in=self.architecture.layers[-1],
+                                     neurons_out=self.architecture.outputs,
+                                     activation_func=self.last_layer_activation_func,
+                                     index=len(self.architecture.layers)))
+
+    def forward(self, save=True):
+        X = self.data.X_train
+        return self._forward(X, save)
+
+    def _forward(self, X, save):
+        for layer in self.layers:
+            X = layer.forward(X, save=save)
+        if save:
+            self.y_pred = X
+        return X
+
+    def predict(self):
+        return self.forward(X, save=False)
 
 
 if __name__ == "__main__":
