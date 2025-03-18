@@ -2,6 +2,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import StandardScaler
 from activation_functions import *
+from history import ModelHistory
 from initializers import *
 import run
 
@@ -89,7 +90,6 @@ class DataSet():
         X = self.x_scaler.inverse_transform(X)
         y_pred = self.y_scaler.inverse_transform(y_pred)
         plt.plot(X, y_pred, color="green")
-        plt.show()
 
     def get_range(self):
         min = np.min(np.concatenate((self.X_train[:, 0], self.X_test[:, 0])))
@@ -172,16 +172,23 @@ class LastLayer(Layer):
 
 class MLP():
 
-    def __init__(self, architecture, dataset_name, initializer=None):
+    def __init__(self, architecture, dataset_name, initializer=None, activation_func=None, name="model"):
         self.architecture = architecture
         self.data = DataSet(dataset_name)
+        self.age = 0
+        self.name = name
 
         self.initializer = initializer
-        self.activation_func = Sigmoid()
-        self.last_layer_activation_func = Linear()
         self.history = ModelHistory(self)
+        self.set_activation_func(activation_func)
         self.generate_layers()
         self.initialize()
+
+    def set_activation_func(self, activation_func):
+        if activation_func is None:
+            activation_func = Sigmoid()
+        self.activation_func = activation_func
+        self.last_layer_activation_func = Linear()
 
     def initialize(self):
         if self.initializer is None:
@@ -203,6 +210,18 @@ class MLP():
                                      neurons_out=self.architecture.outputs,
                                      activation_func=self.last_layer_activation_func,
                                      index=len(self.architecture.layers)))
+
+    def get_weights(self):
+        weights = []
+        for layer in self.layers:
+            weights.append(layer.weights)
+        return weights
+
+    def get_biases(self):
+        biases = []
+        for layer in self.layers:
+            biases.append(layer.biases)
+        return biases
 
     def _forward(self, X, save):
         for layer in self.layers:
@@ -241,6 +260,7 @@ class MLP():
 
     def train(self, epochs, learning_rate, batch=False, verbose=True):
         for epoch in range(epochs):
+            self.age += 1
             if not batch:
                 X = self.data.X_train
                 y_true = self.data.y_train
@@ -250,22 +270,43 @@ class MLP():
                 for X, y in zip(Xs, ys):
                     self.backprop(X=X, y_true=y, learning_rate=learning_rate)
 
+            self.history.log()
             if verbose and (epoch + 1) % 100 == 0:
-                print(f"Epoch: {epoch + 1}")
+                print(f"Model age: {self.age}")
                 self.evaluate()
 
-    def evaluate(self):
+    def evaluate(self, evaluate_on_test=True):
         y_pred_train = self.predict_train()
         y_pred_test = self.predict_test()
         mse_train = self.data.evaluate_train(y_pred_train)
         mse_test = self.data.evaluate_test(y_pred_test)
-        print(f"MSE on train set: {mse_train}")
-        print(f"MSE on test set: {mse_test}")
+        print(f"MSE on train set: {round(mse_train, 2)}")
+        print(f"MSE on test set: {round(mse_test, 2)}")
 
     def plot(self):
         X = self.data.get_linspace()
         y_pred = self.predict(X = X)
         self.data.plot(X, y_pred)
+        plt.show()
+
+    def plot_history(self, start_age = 0, end_age = None):
+        if end_age is None:
+            end_age = self.age
+        self.history.plot(start_age, end_age)
+        plt.show()
+
+
+class ModelSet():
+    def __init__(self, architecture, dataset_name, initializer=None, activation_func=None):
+        self.model_full = MLP(architecture=architecture, dataset_name=dataset_name, initializer=initializer, activation_func=activation_func, name="full model")
+        self.model_minibatch = MLP(architecture=architecture, dataset_name=dataset_name, initializer=initializer, activation_func=activation_func, name = "mini-batch model")
+
+    def train(self, epochs, learning_rate):
+        self.model_full.train(epochs=epochs, learning_rate=learning_rate)
+        self.model_minibatch.train(epochs=epochs, learning_rate=learning_rate, batch=True)
+
+    def plot(self):
+        pass
 
 
 if __name__ == "__main__":
