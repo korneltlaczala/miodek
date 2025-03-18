@@ -48,6 +48,21 @@ class DataSet():
         df = df.drop(columns=["Unnamed: 0", "id"], errors="ignore")
         return df
 
+    def get_batches(self):
+        n = self.X_train.shape[0]
+        batch_size = {
+            n <= 100: 10,
+            100 < n <= 500: 20,
+            500 < n <= 1000: 32,
+            1000 < n <= 5000: 50,
+            5000 < n <= 10000: 70,
+        }.get(True, 100)
+        indices = np.arange(n)
+        np.random.shuffle(indices)
+        Xs = np.array_split(self.X_train[indices], n // batch_size)
+        ys = np.array_split(self.y_train[indices], n // batch_size)
+        return Xs, ys
+
     def evaluate_train(self, y_pred_train):
         return self._evaluate(self.y_train, y_pred_train)
 
@@ -63,13 +78,20 @@ class DataSet():
     def plot_true(self):
         plt.scatter(self.X_train[:, 0], self.y_train, color="blue")
         plt.scatter(self.X_test[:, 0], self.y_test, color="red")
+
+    def plot(self, X, y_pred):
+        self.plot_true()
+        plt.plot(X, y_pred, color="green")
         plt.show()
 
-    def plot_test(self, y_pred_test):
-        plt.scatter(self.X_test[:, 0], self.y_test, color="blue")
-        plt.scatter(self.X_test[:, 0], y_pred_test, color="red")
-        plt.show()
+    def get_range(self):
+        min = np.min(np.concatenate((self.X_train[:, 0], self.X_test[:, 0])))
+        max = np.max(np.concatenate((self.X_train[:, 0], self.X_test[:, 0])))
+        return min, max
 
+    def get_linspace(self):
+        min, max = self.get_range()
+        return np.linspace(min, max, 1000).reshape(-1, 1)
 
 class Layer():
 
@@ -102,6 +124,7 @@ class Layer():
     def update(self, prev_layer, learning_rate):
         batch_size = prev_layer.a.shape[0]
         gradient = np.dot(prev_layer.a.T, self.e) / batch_size
+        gradient = np.clip(gradient, -self.gradient_clip_treshold, self.gradient_clip_treshold)
         self.weights -= learning_rate * gradient
         self.biases -= learning_rate * np.mean(self.e, axis=0)
 
@@ -129,6 +152,7 @@ class FirstLayer(Layer):
     def update(self, prev_layer, learning_rate):
         batch_size = prev_layer.shape[0]
         gradient = np.dot(prev_layer.T, self.e) / batch_size
+        gradient = np.clip(gradient, -self.gradient_clip_treshold, self.gradient_clip_treshold)
         self.weights -= learning_rate * gradient
         self.biases -= learning_rate * np.mean(self.e, axis=0)
 
@@ -172,8 +196,7 @@ class MLP():
             self.y_pred = X
         return X
 
-    def forward_train(self):
-        X = self.data.X_train
+    def predict(self, X):
         return self._forward(X=X, save=False)
 
     def predict_train(self):
@@ -201,11 +224,16 @@ class MLP():
             layer.update(prev_layer, learning_rate)
             prev_layer = layer
 
-    def train(self, epochs, learning_rate):
+    def train(self, epochs, learning_rate, batch=False):
         for epoch in range(epochs):
-            X = self.data.X_train
-            y_true = self.data.y_train
-            self.backprop(X=X, y_true=y_true, learning_rate=learning_rate)
+            if not batch:
+                X = self.data.X_train
+                y_true = self.data.y_train
+                self.backprop(X=X, y_true=y_true, learning_rate=learning_rate)
+            else:
+                Xs, ys = self.data.get_batches()
+                for X, y in zip(Xs, ys):
+                    self.backprop(X=X, y_true=y, learning_rate=learning_rate)
             if (epoch + 1) % 100 == 0:
                 print(f"Epoch: {epoch + 1}")
                 self.evaluate()
@@ -219,30 +247,9 @@ class MLP():
         print(f"MSE on test set: {mse_test}")
 
     def plot(self):
-        y_pred_test = self.predict_test()
-        self.data.plot_test(y_pred_test)
-
-
-class Initializer():
-    def initialize(self, model):
-        self.initialize_weights(model)
-        self.initialize_biases(model)
-
-    def initialize_weights(self, model):
-        raise NotImplementedError
-
-    def initialize_biases(self, model):
-        raise NotImplementedError
-
-
-class NormalInitializer(Initializer):
-    def initialize_weights(self, model):
-        for layer in model.layers:
-            layer.weights = np.random.normal(size=(layer.neurons_in, layer.neurons_out))
-
-    def initialize_biases(self, model):
-        for layer in model.layers:
-            layer.biases = np.random.normal(size=(layer.neurons_out))
+        X = self.data.get_linspace()
+        y_pred = self.predict(X = X)
+        self.data.plot(X, y_pred)
 
 
 if __name__ == "__main__":
