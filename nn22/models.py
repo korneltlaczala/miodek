@@ -2,6 +2,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import StandardScaler
 from activation_functions import *
+from initializers import *
 import run
 
 class MLPArchitecture():
@@ -76,11 +77,17 @@ class DataSet():
         return mse
 
     def plot_true(self):
-        plt.scatter(self.X_train[:, 0], self.y_train, color="blue")
-        plt.scatter(self.X_test[:, 0], self.y_test, color="red")
+        X_train = self.x_scaler.inverse_transform(self.X_train)[:, 0]
+        X_test = self.x_scaler.inverse_transform(self.X_test)[:, 0]
+        y_train = self.y_scaler.inverse_transform(self.y_train)
+        y_test = self.y_scaler.inverse_transform(self.y_test)
+        plt.scatter(X_train, y_train, color="blue")
+        plt.scatter(X_test, y_test, color="red")
 
     def plot(self, X, y_pred):
         self.plot_true()
+        X = self.x_scaler.inverse_transform(X)
+        y_pred = self.y_scaler.inverse_transform(y_pred)
         plt.plot(X, y_pred, color="green")
         plt.show()
 
@@ -165,13 +172,21 @@ class LastLayer(Layer):
 
 class MLP():
 
-    def __init__(self, architecture, dataset_name):
+    def __init__(self, architecture, dataset_name, initializer=None):
         self.architecture = architecture
         self.data = DataSet(dataset_name)
 
+        self.initializer = initializer
         self.activation_func = Sigmoid()
         self.last_layer_activation_func = Linear()
+        self.history = ModelHistory(self)
         self.generate_layers()
+        self.initialize()
+
+    def initialize(self):
+        if self.initializer is None:
+            self.initializer = NormalInitializer()
+        self.initializer.initialize(self)
 
     def generate_layers(self):
         self.layers = []
@@ -224,7 +239,7 @@ class MLP():
             layer.update(prev_layer, learning_rate)
             prev_layer = layer
 
-    def train(self, epochs, learning_rate, batch=False):
+    def train(self, epochs, learning_rate, batch=False, verbose=True):
         for epoch in range(epochs):
             if not batch:
                 X = self.data.X_train
@@ -234,7 +249,8 @@ class MLP():
                 Xs, ys = self.data.get_batches()
                 for X, y in zip(Xs, ys):
                     self.backprop(X=X, y_true=y, learning_rate=learning_rate)
-            if (epoch + 1) % 100 == 0:
+
+            if verbose and (epoch + 1) % 100 == 0:
                 print(f"Epoch: {epoch + 1}")
                 self.evaluate()
 
