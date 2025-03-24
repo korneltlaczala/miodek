@@ -50,15 +50,16 @@ class DataSet():
         df = df.drop(columns=["Unnamed: 0", "id"], errors="ignore")
         return df
 
-    def get_batches(self):
+    def get_batches(self, batch_size=None):
         n = self.X_train.shape[0]
-        batch_size = {
-            n <= 100: 10,
-            100 < n <= 500: 20,
-            500 < n <= 1000: 32,
-            1000 < n <= 5000: 50,
-            5000 < n <= 10000: 70,
-        }.get(True, 100)
+        if batch_size is None:
+            batch_size = {
+                n <= 100: 10,
+                100 < n <= 500: 20,
+                500 < n <= 1000: 32,
+                1000 < n <= 5000: 50,
+                5000 < n <= 10000: 70,
+            }.get(True, 100)
         indices = np.arange(n)
         np.random.shuffle(indices)
         Xs = np.array_split(self.X_train[indices], n // batch_size)
@@ -270,7 +271,7 @@ class MLP():
             layer.update(prev_layer, learning_rate, momentum_lambda)
             prev_layer = layer
 
-    def train(self, epochs, learning_rate, batch=False, verbose=True, momentum_lambda=0, report_interval=100):
+    def train(self, epochs, learning_rate, batch=False, verbose=True, momentum_lambda=0, report_interval=100, batch_size=None):
         for epoch in range(epochs):
             self.age += 1
             if not batch:
@@ -278,7 +279,7 @@ class MLP():
                 y_true = self.data.y_train
                 self.backprop(X=X, y_true=y_true, learning_rate=learning_rate, momentum_lambda=momentum_lambda)
             else:
-                Xs, ys = self.data.get_batches()
+                Xs, ys = self.data.get_batches(batch_size)
                 for X, y in zip(Xs, ys):
                     self.backprop(X=X, y_true=y, learning_rate=learning_rate, momentum_lambda=momentum_lambda)
 
