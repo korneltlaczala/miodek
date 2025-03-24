@@ -99,7 +99,8 @@ class DataSet():
 
     def get_linspace(self):
         min, max = self.get_range()
-        return np.linspace(min, max, 1000).reshape(-1, 1)
+        margin = 0.3 * (max - min)
+        return np.linspace(min - margin, max + margin, 1000).reshape(-1, 1)
 
 class Layer():
 
@@ -112,6 +113,8 @@ class Layer():
 
         self.momentum_weights = np.zeros((neurons_in, neurons_out))
         self.momentum_biases = np.zeros(neurons_out)
+        self.rms_weights = np.zeros((neurons_in, neurons_out))
+        self.rms_biases = np.zeros(neurons_out)
         self.weights = np.zeros((neurons_in, neurons_out))
         self.biases = np.zeros(neurons_out)
 
@@ -141,8 +144,18 @@ class Layer():
 
         self.weights -= self.momentum_weights
         self.biases -= self.momentum_biases
-        # self.weights -= learning_rate * gradient
-        # self.biases -= learning_rate * np.mean(self.e, axis=0)
+
+    def update_rmsprop(self, prev_layer, learning_rate, rms_beta):
+        batch_size = prev_layer.a.shape[0]
+        gradient = np.dot(prev_layer.a.T, self.e) / batch_size
+        gradient = np.clip(gradient, -self.gradient_clip_treshold, self.gradient_clip_treshold)
+
+        self.rms_weights = rms_beta * self.rms_weights + (1 - rms_beta) * gradient ** 2
+        self.rms_biases = rms_beta * self.rms_biases + (1 - rms_beta) * np.mean(self.e, axis=0) ** 2
+
+        epsilon = 1e-8
+        self.weights -= learning_rate * gradient / (np.sqrt(self.rms_weights) + epsilon)
+        self.biases -= learning_rate * np.mean(self.e, axis=0) / (np.sqrt(self.rms_biases) + epsilon)
 
     def set_weigths(self, weights):
         self.weights = weights
@@ -175,6 +188,18 @@ class FirstLayer(Layer):
 
         self.weights -= self.momentum_weights
         self.biases -= self.momentum_biases
+
+    def update_rmsprop(self, prev_layer, learning_rate, rms_beta):
+        batch_size = prev_layer.shape[0]
+        gradient = np.dot(prev_layer.T, self.e) / batch_size
+        gradient = np.clip(gradient, -self.gradient_clip_treshold, self.gradient_clip_treshold)
+
+        self.rms_weights = rms_beta * self.rms_weights + (1 - rms_beta) * gradient ** 2
+        self.rms_biases = rms_beta * self.rms_biases + (1 - rms_beta) * np.mean(self.e, axis=0) ** 2
+
+        epsilon = 1e-8
+        self.weights -= learning_rate * gradient / (np.sqrt(self.rms_weights) + epsilon)
+        self.biases -= learning_rate * np.mean(self.e, axis=0) / (np.sqrt(self.rms_biases) + epsilon)
 
 
 class LastLayer(Layer):
@@ -254,10 +279,10 @@ class MLP():
         X = self.data.X_test
         return self._forward(X=X, save=False)
 
-    def backprop(self, X, y_true, learning_rate, momentum_lambda):
+    def backprop(self, X, y_true, learning_rate, optimizer, momentum_lambda=None, rms_beta=None):
         self._forward(X=X, save=True)
         self.backward(y_true)
-        self.update(X, learning_rate, momentum_lambda)
+        self.update(X, learning_rate, optimizer, momentum_lambda, rms_beta)
 
     def backward(self, y_true):
         next_layer = y_true
@@ -265,23 +290,26 @@ class MLP():
             layer.backward(next_layer)
             next_layer = layer
 
-    def update(self, X, learning_rate, momentum_lambda):
+    def update(self, X, learning_rate, optimizer, momentum_lambda, rms_beta):
         prev_layer = X
         for layer in self.layers:
-            layer.update(prev_layer, learning_rate, momentum_lambda)
+            if optimizer == "momentum":
+                layer.update(prev_layer, learning_rate, momentum_lambda)
+            elif optimizer == "rmsprop":
+                layer.update_rmsprop(prev_layer, learning_rate, rms_beta)
             prev_layer = layer
 
-    def train(self, epochs, learning_rate, batch=False, verbose=True, momentum_lambda=0, report_interval=100, batch_size=None):
+    def train(self, epochs, learning_rate, batch=False, batch_size=None, verbose=True, report_interval=100, momentum_lambda=0, rms_beta=None, optimizer="momentum"):
         for epoch in range(epochs):
             self.age += 1
             if not batch:
                 X = self.data.X_train
                 y_true = self.data.y_train
-                self.backprop(X=X, y_true=y_true, learning_rate=learning_rate, momentum_lambda=momentum_lambda)
+                self.backprop(X, y_true, learning_rate, optimizer, momentum_lambda, rms_beta)
             else:
                 Xs, ys = self.data.get_batches(batch_size)
                 for X, y in zip(Xs, ys):
-                    self.backprop(X=X, y_true=y, learning_rate=learning_rate, momentum_lambda=momentum_lambda)
+                    self.backprop(X, y, learning_rate, optimizer, momentum_lambda, rms_beta)
 
             self.history.log()
             if verbose and (epoch + 1) % report_interval == 0:

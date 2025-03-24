@@ -38,7 +38,7 @@ class XavierNormalInitializer(Initializer):
 
     def initialize_biases(self, model):
         for layer in model.layers:
-            layer.biases = np.random.normal(size=(layer.neurons_out))
+            layer.biases = np.zeros((layer.neurons_out))
 
 
 class XavierUniformInitializer(Initializer):
