@@ -5,6 +5,8 @@ from sklearn.preprocessing import StandardScaler
 from activation_functions import *
 from history import ModelHistory
 from initializers import *
+import copy
+import pickle
 import run
 
 class MLPArchitecture():
@@ -346,8 +348,10 @@ class MLP():
         print(f"Best model MSE: {round(self.history.best_test_mse, 2)}")
         print("-" * 20)
         self.age = self.history.best_age
-        self.set_weights(self.history.best_weights)
-        self.set_biases(self.history.best_biases)
+        best_weights = copy.deepcopy(self.history.best_weights)
+        best_biases = copy.deepcopy(self.history.best_biases)
+        self.set_weights(best_weights)
+        self.set_biases(best_biases)
 
     def evaluate(self, evaluate_on_test=True):
         y_pred_train = self.predict_train()
@@ -371,6 +375,15 @@ class MLP():
 
     def copy(self):
         return copy.deepcopy(self)
+
+    def save(self, name="model"):
+        with open(f"{name}.pkl", "wb") as f:
+            pickle.dump(self, f)
+
+    @classmethod
+    def load(self, name="model"):
+        with open(f"{name}.pkl", "rb") as f:
+            return pickle.load(f)
 
 
 class ModelSet():
