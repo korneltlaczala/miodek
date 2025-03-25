@@ -266,6 +266,14 @@ class MLP():
             biases.append(layer.biases)
         return biases
 
+    def get_weights_copy(self):
+        weights = self.get_weights()
+        return [w.copy() for w in weights]
+
+    def get_biases_copy(self):
+        biases = self.get_biases()
+        return [b.copy() for b in biases]
+
     def set_weights(self, weights):
         for i in range(len(weights)):
             self.layers[i].weights = weights[i]
@@ -376,7 +384,6 @@ class ModelSet():
 
     def plot(self):
         pass
-
 
 if __name__ == "__main__":
     run.main()
