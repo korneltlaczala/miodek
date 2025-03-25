@@ -1,3 +1,4 @@
+from matplotlib.pylab import copy
 import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import StandardScaler
@@ -99,7 +100,7 @@ class DataSet():
 
     def get_linspace(self):
         min, max = self.get_range()
-        margin = 0.3 * (max - min)
+        margin = 0.2 * (max - min)
         return np.linspace(min - margin, max + margin, 1000).reshape(-1, 1)
 
 class Layer():
@@ -222,6 +223,9 @@ class MLP():
         self.generate_layers()
         self.initialize()
 
+    def print_shit(self):
+        print("shit")
+
     def set_activation_func(self, activation_func):
         if activation_func is None:
             activation_func = Sigmoid()
@@ -248,6 +252,7 @@ class MLP():
                                      neurons_out=self.architecture.outputs,
                                      activation_func=self.last_layer_activation_func,
                                      index=len(self.architecture.layers)))
+        
 
     def get_weights(self):
         weights = []
@@ -260,6 +265,14 @@ class MLP():
         for layer in self.layers:
             biases.append(layer.biases)
         return biases
+
+    def set_weights(self, weights):
+        for i in range(len(weights)):
+            self.layers[i].weights = weights[i]
+
+    def set_biases(self, biases):
+        for i in range(len(biases)):
+            self.layers[i].biases = biases[i]
 
     def _forward(self, X, save):
         for layer in self.layers:
@@ -299,7 +312,7 @@ class MLP():
                 layer.update_rmsprop(prev_layer, learning_rate, rms_beta)
             prev_layer = layer
 
-    def train(self, epochs, learning_rate, batch=False, batch_size=None, verbose=True, report_interval=100, momentum_lambda=0, rms_beta=None, optimizer="momentum"):
+    def train(self, epochs, learning_rate, batch=False, batch_size=None, verbose=True, report_interval=100, momentum_lambda=0, rms_beta=None, optimizer="momentum", save_till_best=False):
         for epoch in range(epochs):
             self.age += 1
             if not batch:
@@ -313,15 +326,27 @@ class MLP():
 
             self.history.log()
             if verbose and (epoch + 1) % report_interval == 0:
-                print(f"Model age: {self.age}")
+                print(f"Model age: {self.age}", end="\t")
                 self.evaluate()
+
+        if save_till_best:
+            self.revert_to_best()
+
+    def revert_to_best(self):
+        print("-" * 20)
+        print(f"Reverting to best model at age {self.history.best_age}")
+        print(f"Best model MSE: {round(self.history.best_test_mse, 2)}")
+        print("-" * 20)
+        self.age = self.history.best_age
+        self.set_weights(self.history.best_weights)
+        self.set_biases(self.history.best_biases)
 
     def evaluate(self, evaluate_on_test=True):
         y_pred_train = self.predict_train()
         y_pred_test = self.predict_test()
         mse_train = self.data.evaluate_train(y_pred_train)
         mse_test = self.data.evaluate_test(y_pred_test)
-        print(f"MSE on train set: {round(mse_train, 2)}")
+        print(f"MSE on train set: {round(mse_train, 2)}", end="\t")
         print(f"MSE on test set: {round(mse_test, 2)}")
 
     def plot(self):
@@ -335,6 +360,9 @@ class MLP():
             end_age = self.age
         self.history.plot(start_age, end_age)
         plt.show()
+
+    def copy(self):
+        return copy.deepcopy(self)
 
 
 class ModelSet():

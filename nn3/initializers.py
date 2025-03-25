@@ -49,7 +49,7 @@ class XavierUniformInitializer(Initializer):
 
     def initialize_biases(self, model):
         for layer in model.layers:
-            layer.biases = np.random.uniform(size=(layer.neurons_out))
+            layer.biases = np.zeros((layer.neurons_out))
 
 
 class HeNormalInitializer(Initializer):
@@ -60,7 +60,7 @@ class HeNormalInitializer(Initializer):
 
     def initialize_biases(self, model):
         for layer in model.layers:
-            layer.biases = np.random.normal(size=(layer.neurons_out))
+            layer.biases = np.zeros((layer.neurons_out))
 
 
 class HeUniformInitializer(Initializer):
@@ -71,4 +71,4 @@ class HeUniformInitializer(Initializer):
 
     def initialize_biases(self, model):
         for layer in model.layers:
-            layer.biases = np.random.uniform(size=(layer.neurons_out))
+            layer.biases = np.zeros((layer.neurons_out))

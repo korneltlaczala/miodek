@@ -1,4 +1,5 @@
 from abc import abstractmethod
+from matplotlib import pyplot as plt
 import numpy as np
 
 
@@ -77,8 +78,19 @@ class Linear(ActivationFunction):
     def derivative(self, X):
         return np.ones_like(X)
 
-def test():
-    x = np.random.uniform(-5, 5, size=(5,))
-    print(x)
-    print(Linear().activate(x))
-    print(Linear().derivative(x))
+def test(function):
+    x = np.linspace(-5, 5, 100)
+    plt.figure(figsize=(10, 6))
+    plt.plot(x, function.activate(x), label="Activation", color="blue", linestyle="-")
+    plt.plot(x, function.derivative(x), label="Derivative", color="orange", linestyle="--")
+    plt.legend()
+    plt.grid(True, linestyle='--', alpha=0.7)
+    plt.xlabel("x")
+    plt.ylabel("f(x)")
+    plt.title(f"{function.name} Activation Function")
+    plt.show()
+
+
+if __name__ == "__main__":
+    test(ReLU())
+
