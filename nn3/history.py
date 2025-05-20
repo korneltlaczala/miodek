@@ -22,14 +22,14 @@ class ModelHistory():
         if test_mse < self.best_test_mse:
             self.best_test_mse = test_mse
             self.best_age = self.model.age
-            self.best_weights = self.model.get_weights()
-            self.best_biases = self.model.get_biases()
+            self.best_weights = self.model.get_weights_copy()
+            self.best_biases = self.model.get_biases_copy()
 
         self.train_mse.append(train_mse)
         self.test_mse.append(test_mse)
         if self.model.age % self.save_interval == 0:
-            self.weight_data.append(self.model.get_weights())
-            self.bias_data.append(self.model.get_biases())
+            self.weight_data.append(self.model.get_weights_copy())
+            self.bias_data.append(self.model.get_biases_copy())
 
     def plot(self, start_age, end_age):
         smoothing_interval = 30
