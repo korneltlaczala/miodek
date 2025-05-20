@@ -33,10 +33,20 @@ class Population():
         # selekcja
         # nowa populacja
 
-    def generate_children(self, population):
-        fitness_values = self.function.apply(population)
-        print(fitness_values)
-        return
+    def generate_children(self, population, parent_density=0.7):
+        parents1 = self.select_parents(population, parent_density)
+        parents2 = self.select_parents(population, parent_density)
+        children = []
+        for i in range(len(parents1)):
+            children.append(self.crossover(parents1[i], parents2[i]))
+        return children
+
+    def select_parents(self, population, parent_density):
+        target_count = int(parent_density * self.size)
+        
+        parent_indexes = random.sample(range(self.size), target_count)
+        
+        return parents
 
     def plot(self, axis=[0, 1]):
         x = [self.population[i][axis[0]] for i in range(self.size)]
