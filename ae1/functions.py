@@ -17,7 +17,7 @@ class BasicFunction(Function):
         z = vector[2]
         return x*x + y*y + 2*z*z
 
-class RastringerFunction(Function):
+class RastriginFunction(Function):
 
     def __init__(self, dim):
         self.A = 10
