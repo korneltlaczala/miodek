@@ -34,9 +34,9 @@ class Population():
 
     def pass_generation(self, verbose):
         self.age += 1
-        children = self.generate_children(self.population)                  # krzyżowanie
-        mutated_children = self.mutate(children)                            # mutacja
-        new_population = self.select(parents=self.population, children=mutated_children)  # selekcja
+        children = self.generate_children(self.population)                                  # krzyżowanie
+        mutated_children = self.mutate(children)                                            # mutacja
+        new_population = self.select(parents=self.population, children=mutated_children)    # selekcja
         self.population = new_population
 
         if verbose:
@@ -61,13 +61,13 @@ class Population():
         return children
 
     def mutate(self, children):
-        mutator = Mutator(children, 0.01)
+        mutator = Mutator(children, 0.1)
         children = mutator.gaussian(children)
         return children
 
     def select(self, children, parents=None):
         selector = Selector(population_size=self.size, parents=parents, children=children, fitness_function=self.fitness_function)
-        return selector.elitism(0.8)
+        return selector.elitism(elitism_rate=0.2)
         # return selector.best()
 
     def plot(self, populations, axis=[0, 1], colors=None, sizes=None, alphas=None):
