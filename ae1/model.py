@@ -2,8 +2,6 @@ import math
 import random
 import matplotlib.pyplot as plt
 import numpy as np
-from rich.progress import Progress
-from alive_progress import alive_bar
 from tqdm import trange
 
 from functions import BasicFunction, RastriginFunction
