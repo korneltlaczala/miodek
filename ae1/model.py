@@ -17,6 +17,12 @@ class PopulationSet():
     def add(self, population):
         self.populations.append(population)
 
+    def pop(self):
+        return self.populations.pop()
+
+    def __str__(self):
+        return f"PopulationSet with {len(self.populations)} populations"
+
     def evolve(self, generations=10, verbose=True, bar_stay=False):
         iterator = (
             range(len(self.populations)) if not verbose else
