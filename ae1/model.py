@@ -11,19 +11,27 @@ from evomechanisms import ChildrenGenerator, Mutator, ParentSelector, Selector
 class PopulationSet():
 
     def __init__(self):
-        pass
+        self.populations = []
 
+    def add(self, population):
+        self.populations.append(population)
 
-class Visualizer():
-    def __init__(self, population_dict):
-        self.population_dict = population_dict
+    def evolve(self, generations=10, verbose=True, bar_stay=False):
+        iterator = (
+            range(len(self.populations)) if not verbose else
+            trange(len(self.populations), mininterval=0.001, ncols=120, initial=1, position=0, colour="#97cd7d")
+        )
+        for i in iterator:
+            population = self.populations[i]
+            bar_position = 1 if not bar_stay else i+1
+            population.evolve(generations=generations, verbose=verbose, bar_stay=bar_stay, bar_position=bar_position, desc="")
 
-    def plot_best_values(self, title=None, log_scale=True, ):
+    def plot_best_values(self, title=None, log_scale=True, plot_precision=1e-50):
         plt.figure(figsize=(10, 6))
-        for label, population in self.population_dict.items():
+        for population in self.populations:
             x = [log["age"] for log in population.history.history]
             y = [log["best_value"] for log in population.history.history]
-            plt.plot(x, y, label=label)
+            plt.plot(x, y, label=population.label)
 
 
         def normalize_to_exponent(num):
@@ -31,20 +39,19 @@ class Visualizer():
                 return 0
             exponent = math.floor(math.log10(abs(num)))
             return math.copysign(1, num) * 10**exponent
-        min_val = min([population.best_value() for population in self.population_dict.values()])
+        min_val = min([population.best_value() for population in self.populations])
         min_val = normalize_to_exponent(min_val)
-
-
         if log_scale:
-            # plt.yscale('symlog', linthresh=1e-20)
-            plt.yscale('symlog', linthresh=max(min_val, 1e-50))
+            plt.yscale('symlog', linthresh=max(min_val, plot_precision))
+
         plt.xlabel("Generation")
         plt.ylabel("Best Fitness Value")
         plot_title = "Best Fitness Value Over Time"
         if title is not None:
             plot_title += f" - {title}"
         plt.title(plot_title)
-        plt.legend()
+        plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.)
+
         plt.ylim(bottom=0)
         plt.grid(True)
         plt.tight_layout()
@@ -85,7 +92,7 @@ class PopulationHistory():
 
 
 class Population():
-    def __init__(self, size, fitness_function, interval):
+    def __init__(self, size, fitness_function, interval, label=None):
         self.size = size
         self.fitness_function = fitness_function
         self.interval = interval
@@ -93,6 +100,7 @@ class Population():
         self.age = 0
         self.history = PopulationHistory(fitness_function)
         self.history.log(self.age, self.population)
+        self.label = label
 
     def populate(self, size):
         self.population = []
@@ -102,17 +110,15 @@ class Population():
                vector.append(random.uniform(self.interval[0], self.interval[1]))
             self.population.append(vector)
 
-    def evolve(self, generations=10, verbose=False, report_interval=10):
+    def evolve(self, generations=10, verbose=True, bar_stay=True, bar_position=0, desc=""):
+        iterator = (
+            trange(generations, desc=desc, mininterval=0.01, ncols=80, leave=bar_stay, position=bar_position, colour="#f8686c", unit="gen")
+            if verbose else range(generations)
+        )
+        for i in iterator:
+            self.generation_step()
 
-        task_description = f"population size: {str(self.size) + ", " + self.fitness_function.name:<25}"
-        for i in trange(generations, desc=task_description, mininterval=0.001, ncols=120):
-            self.generation_step(verbose)
-            # if i % report_interval == 0:
-            #     print(f"generation: {i}\t\tbest value: {self.evaluate()}")
-
-        # self.summary()
-
-    def generation_step(self, verbose):
+    def generation_step(self, verbose=False):
         self.age += 1
         old_population = self.population
         children = self.generate_children(self.population)                                  # krzyżowanie
@@ -189,15 +195,11 @@ class Population():
 
 if __name__ == "__main__":
     population_size = 40
-    population1 = Population(population_size, BasicFunction(), [-10, 10])
-    population2 = Population(population_size, RastriginFunction(dim=5), [-10, 10])
-    generations = 80
-    population1.evolve(generations=generations, report_interval=1000)
-    population2.evolve(generations=generations, report_interval=1000)
+    population1 = Population(population_size, BasicFunction(), [-10, 10], label="basic function")
+    population2 = Population(population_size, RastriginFunction(dim=5), [-10, 10], label="rastrigin function")
 
-    population_dict = {
-        "basic function": population1,
-        "rastrigin function": population2
-    }
-    visualizer = Visualizer(population_dict)
-    visualizer.plot_best_values()
+    pset = PopulationSet()
+    pset.add(population1)
+    pset.add(population2)
+    pset.evolve(generations=80, bar_stay=False)
+    pset.plot_best_values(plot_precision=1e-18)
