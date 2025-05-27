@@ -9,22 +9,25 @@ class Visualizer():
     def __init__(self, population_dict):
         self.population_dict = population_dict
 
-    def plot_best_values(self):
+    def plot_best_values(self, title=None, log_scale=True):
         plt.figure(figsize=(10, 6))
         for label, population in self.population_dict.items():
             x = [log["age"] for log in population.history.history]
             y = [log["best_value"] for log in population.history.history]
             plt.plot(x, y, label=label)
 
-        plt.yscale('symlog')
+        if log_scale:
+            plt.yscale('symlog')
         plt.xlabel("Generation")
         plt.ylabel("Best Fitness Value")
-        plt.title("Best Fitness Value Over Time")
+        plot_title = "Best Fitness Value Over Time"
+        if title is not None:
+            plot_title += f" - {title}"
+        plt.title(plot_title)
         plt.legend()
         plt.grid(True)
         plt.tight_layout()
         plt.axhline(y=10**-2, color='r', linestyle='--', label='10^-2')
-
         plt.show()
 
 
@@ -169,12 +172,13 @@ class Population():
     
 
 if __name__ == "__main__":
-    population1 = Population(50, BasicFunction(), [-10, 10])
-    population2 = Population(50, RastriginFunction(dim=5), [-10, 10])
-    n = 100
+    population_size = 20
+    population1 = Population(population_size, BasicFunction(), [-10, 10])
+    population2 = Population(population_size, RastriginFunction(dim=5), [-10, 10])
+    generations = 80
     # population.evolve(generations=n, report_interval=1, verbose=True)
-    population1.evolve(generations=n, report_interval=1000)
-    population2.evolve(generations=n, report_interval=1000)
+    population1.evolve(generations=generations, report_interval=1000)
+    population2.evolve(generations=generations, report_interval=1000)
     # population.plot_population()
     # population.history.plot_best_value(log_scale=True)
 
