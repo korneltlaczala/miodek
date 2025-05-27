@@ -34,6 +34,7 @@ class PopulationSet():
             plt.plot(x, y, label=population.label)
 
 
+
         def normalize_to_exponent(num):
             if num == 0:
                 return 0
@@ -43,6 +44,7 @@ class PopulationSet():
         min_val = normalize_to_exponent(min_val)
         if log_scale:
             plt.yscale('symlog', linthresh=max(min_val, plot_precision))
+
 
         plt.xlabel("Generation")
         plt.ylabel("Best Fitness Value")
@@ -110,21 +112,20 @@ class Population():
                vector.append(random.uniform(self.interval[0], self.interval[1]))
             self.population.append(vector)
 
-    def evolve(self, generations=10, verbose=True, bar_stay=True, bar_position=0, desc=""):
+    def evolve(self, generations=10, verbose=True, bar_stay=True, bar_position=0, desc="", parent_density=0.7, mutation_scale=0.1, elitism_rate=0.1):
         iterator = (
-            trange(generations, desc=desc, mininterval=0.01, ncols=80, leave=bar_stay, position=bar_position, colour="#f8686c", unit="gen")
+            trange(generations, desc=desc, mininterval=0.01, ncols=80, leave=bar_stay, position=bar_position, colour="#63be7b", unit="gen")
             if verbose else range(generations)
         )
         for i in iterator:
-            self.generation_step()
+            self.generation_step(parent_density=parent_density, mutation_scale=mutation_scale, elitism_rate=elitism_rate)
 
-    def generation_step(self, verbose=False):
+    def generation_step(self, verbose=False, parent_density=0.7, mutation_scale=0.1, elitism_rate=0.1):
         self.age += 1
         old_population = self.population
-        children = self.generate_children(self.population)                                  # krzyżowanie
-        mutated_children = self.mutate(children)                                            # mutacja
-        new_population = self.select(parents=self.population, children=mutated_children)    # selekcja
-
+        children = self.generate_children(self.population, parent_density)              # krzyżowanie
+        mutated_children = self.mutate(children, mutation_scale)                        # mutacja
+        new_population = self.select(self.population, mutated_children, elitism_rate)   # selekcja
         self.population = new_population
 
         self.history.log(self.age, self.population)
@@ -139,21 +140,16 @@ class Population():
             self.plot(samples, colors=colors, sizes=sizes, alphas=alphas)
 
     def generate_children(self, population, parent_density=0.7):
-        selector = ParentSelector(population, self.fitness_function, parent_density)
-        parents = selector.best()
-        generator = ChildrenGenerator(parents, self.fitness_function)
-        children = generator.pairwise()
+        parents = ParentSelector(population, self.fitness_function, parent_density).best()
+        children = ChildrenGenerator(parents, self.fitness_function).pairwise()
         return children
 
-    def mutate(self, children):
-        mutator = Mutator(children, mutation_scale=0.1, permutation_chance=0.2)
-        children = mutator.gaussian(children)
+    def mutate(self, children, mutation_scale=0.1):
+        children = Mutator(children, mutation_scale=mutation_scale, permutation_chance=0.2).gaussian(children)
         return children
 
-    def select(self, children, parents=None):
-        selector = Selector(population_size=self.size, parents=parents, children=children, fitness_function=self.fitness_function)
-        return selector.elitism(elitism_rate=0.1)
-        # return selector.best()
+    def select(self, children, parents=None, elitism_rate=0.1):
+        return Selector(population_size=self.size, parents=parents, children=children, fitness_function=self.fitness_function).elitism(elitism_rate=elitism_rate)
 
     def plot(self, populations, axis=[0, 1], colors=None, sizes=None, alphas=None):
         population_count = len(populations)
