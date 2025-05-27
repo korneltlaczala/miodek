@@ -1,15 +1,30 @@
+from abc import ABC, abstractmethod
 import math
 
-class Function():
+class Function(ABC):
+
+    @property
+    @abstractmethod
+    def name(self):
+        pass
+
+    @abstractmethod
+    def calculate(self, vector):
+        pass
 
     def apply(self, vector_list):
         return [self.calculate(vector) for vector in vector_list]
+
 
 
 class BasicFunction(Function):
 
     def __init__(self):
         self.dim = 3
+
+    @property
+    def name(self):
+        return f"Basic Function"
     
     def calculate(self, vector):
         x = vector[0]
@@ -22,6 +37,11 @@ class RastriginFunction(Function):
     def __init__(self, dim):
         self.A = 10
         self.dim = dim
+
+    @property
+    def name(self):
+        # return f"Rastrigin Function ({self.dim}D)"
+        return f"Rastrigin Function"
     
     def calculate(self, vector):
         value = self.A * self.dim

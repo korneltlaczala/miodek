@@ -1,23 +1,45 @@
+import math
 import random
 import matplotlib.pyplot as plt
 import numpy as np
+from rich.progress import Progress
+from alive_progress import alive_bar
+from tqdm import trange
 
 from functions import BasicFunction, RastriginFunction
 from evomechanisms import ChildrenGenerator, Mutator, ParentSelector, Selector
+
+
+class PopulationSet():
+
+    def __init__(self):
+        pass
+
 
 class Visualizer():
     def __init__(self, population_dict):
         self.population_dict = population_dict
 
-    def plot_best_values(self, title=None, log_scale=True):
+    def plot_best_values(self, title=None, log_scale=True, ):
         plt.figure(figsize=(10, 6))
         for label, population in self.population_dict.items():
             x = [log["age"] for log in population.history.history]
             y = [log["best_value"] for log in population.history.history]
             plt.plot(x, y, label=label)
 
+
+        def normalize_to_exponent(num):
+            if num == 0:
+                return 0
+            exponent = math.floor(math.log10(abs(num)))
+            return math.copysign(1, num) * 10**exponent
+        min_val = min([population.best_value() for population in self.population_dict.values()])
+        min_val = normalize_to_exponent(min_val)
+
+
         if log_scale:
-            plt.yscale('symlog')
+            # plt.yscale('symlog', linthresh=1e-20)
+            plt.yscale('symlog', linthresh=max(min_val, 1e-50))
         plt.xlabel("Generation")
         plt.ylabel("Best Fitness Value")
         plot_title = "Best Fitness Value Over Time"
@@ -25,6 +47,7 @@ class Visualizer():
             plot_title += f" - {title}"
         plt.title(plot_title)
         plt.legend()
+        plt.ylim(bottom=0)
         plt.grid(True)
         plt.tight_layout()
         plt.axhline(y=10**-2, color='r', linestyle='--', label='10^-2')
@@ -63,7 +86,6 @@ class PopulationHistory():
         plt.show()
 
 
-
 class Population():
     def __init__(self, size, fitness_function, interval):
         self.size = size
@@ -83,12 +105,14 @@ class Population():
             self.population.append(vector)
 
     def evolve(self, generations=10, verbose=False, report_interval=10):
-        for i in range(generations):
-            self.generation_step(verbose)
-            if i % report_interval == 0:
-                print(f"generation: {i}\t\tbest value: {self.evaluate()}")
 
-        self.summary()
+        task_description = f"population size: {str(self.size) + ", " + self.fitness_function.name:<25}"
+        for i in trange(generations, desc=task_description, mininterval=0.001, ncols=120):
+            self.generation_step(verbose)
+            # if i % report_interval == 0:
+            #     print(f"generation: {i}\t\tbest value: {self.evaluate()}")
+
+        # self.summary()
 
     def generation_step(self, verbose):
         self.age += 1
@@ -102,11 +126,6 @@ class Population():
         self.history.log(self.age, self.population)
 
         if verbose:
-            # self.show_population(self.population)
-            # self.show_population(children)
-            # print(f"parent count: {len(self.population)}")
-            # print(f"children count: {len(children)}")
-            # print(f"new population size: {len(self.population)}")
             small_size = 10
             alpha = 0.1
             samples = [old_population, children, mutated_children, new_population]
@@ -151,36 +170,32 @@ class Population():
     def plot_population(self):
         self.plot([self.population])
 
-    def show_population(self, population):
-        for vector in population:
-            print(vector)
+    def best_value(self):
+        values = self.fitness_function.apply(self.population)
+        return min(values)
 
-    def find_best(self):
+    def best_vector(self):
         values = self.fitness_function.apply(self.population)
         return self.population[np.argmin(values)]
 
     def summary(self):
         values = self.fitness_function.apply(self.population)
-        best_vector = self.find_best()
+        best_vector = self.best_vector()
         print(f"best value: {min(values)}")
         print(f"best vector: {best_vector}")
 
     def evaluate(self):
         values = self.fitness_function.apply(self.population)
         return min(values)
-
     
 
 if __name__ == "__main__":
-    population_size = 20
+    population_size = 40
     population1 = Population(population_size, BasicFunction(), [-10, 10])
     population2 = Population(population_size, RastriginFunction(dim=5), [-10, 10])
     generations = 80
-    # population.evolve(generations=n, report_interval=1, verbose=True)
     population1.evolve(generations=generations, report_interval=1000)
     population2.evolve(generations=generations, report_interval=1000)
-    # population.plot_population()
-    # population.history.plot_best_value(log_scale=True)
 
     population_dict = {
         "basic function": population1,
