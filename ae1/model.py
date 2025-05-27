@@ -1,5 +1,6 @@
 import math
 import random
+import time
 import matplotlib.pyplot as plt
 import numpy as np
 from tqdm import trange
@@ -26,14 +27,13 @@ class PopulationSet():
             bar_position = 1 if not bar_stay else i+1
             population.evolve(generations=generations, verbose=verbose, bar_stay=bar_stay, bar_position=bar_position, desc="")
 
-    def plot_best_values(self, title=None, log_scale=True, plot_precision=1e-50):
+    def plot_best_values(self, title=None, log_scale=True, plot_precision=1e-50, x_arg="generation", x_lim_right=None, x_lim_left=None, y_lim_top=None):
+
         plt.figure(figsize=(10, 6))
         for population in self.populations:
-            x = [log["age"] for log in population.history.history]
+            x = [log[x_arg] for log in population.history.history]
             y = [log["best_value"] for log in population.history.history]
             plt.plot(x, y, label=population.label)
-
-
 
         def normalize_to_exponent(num):
             if num == 0:
@@ -45,16 +45,29 @@ class PopulationSet():
         if log_scale:
             plt.yscale('symlog', linthresh=max(min_val, plot_precision))
 
-
-        plt.xlabel("Generation")
+        if x_arg == "generation":
+            plt.xlabel("Generation")
+        if x_arg == "total_time":
+            plt.xlabel("Time (s)")
         plt.ylabel("Best Fitness Value")
-        plot_title = "Best Fitness Value Over Time"
-        if title is not None:
-            plot_title += f" - {title}"
+        plot_title = title if title is not None else f"Best Fitness Value vs. {x_arg} - {self.populations[0].fitness_function.name}"
         plt.title(plot_title)
         plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.)
 
-        plt.ylim(bottom=0)
+        top_lim = (
+            y_lim_top if y_lim_top is not None else
+            max(y)
+        )
+        left_lim = (
+            x_lim_left if x_lim_left is not None else
+            0
+        )
+        right_lim = (
+            x_lim_right if x_lim_right is not None else
+            max(x)
+        )
+        plt.ylim(bottom=0, top=top_lim)
+        plt.xlim(left=left_lim, right=right_lim)
         plt.grid(True)
         plt.tight_layout()
         plt.axhline(y=10**-2, color='r', linestyle='--', label='10^-2')
@@ -66,10 +79,12 @@ class PopulationHistory():
         self.history = []
         self.fitness_function = fitness_function
 
-    def log(self, age, population):
+    def log(self, generation, population, elapsed_time):
         best_vector, best_value = self.find_best(population)
         log = {
-            "age": age,
+            "generation": generation,
+            "unit_time": elapsed_time,
+            "total_time": self.history[-1]["total_time"] + elapsed_time if len(self.history) > 0 else elapsed_time,
             "population": population,
             "best_vector": best_vector,
             "best_value": best_value,
@@ -81,7 +96,7 @@ class PopulationHistory():
         return population[np.argmin(values)], min(values)
 
     def get_best_value_plot(self, log_scale=False):
-        x = [log["age"] for log in self.history]
+        x = [log["generation"] for log in self.history]
         y = [log["best_value"] for log in self.history]
         if log_scale:
             plt.yscale('log')
@@ -99,9 +114,9 @@ class Population():
         self.fitness_function = fitness_function
         self.interval = interval
         self.populate(size)
-        self.age = 0
+        self.generation = 0
         self.history = PopulationHistory(fitness_function)
-        self.history.log(self.age, self.population)
+        self.history.log(self.generation, self.population, 0)
         self.label = label
 
     def populate(self, size):
@@ -121,14 +136,17 @@ class Population():
             self.generation_step(parent_density=parent_density, mutation_scale=mutation_scale, elitism_rate=elitism_rate)
 
     def generation_step(self, verbose=False, parent_density=0.7, mutation_scale=0.1, elitism_rate=0.1):
-        self.age += 1
+        self.generation += 1
+        start_time = time.time()
         old_population = self.population
         children = self.generate_children(self.population, parent_density)              # krzyżowanie
         mutated_children = self.mutate(children, mutation_scale)                        # mutacja
         new_population = self.select(self.population, mutated_children, elitism_rate)   # selekcja
         self.population = new_population
+        end_time = time.time()
+        elapsed_time = end_time - start_time
 
-        self.history.log(self.age, self.population)
+        self.history.log(self.generation, self.population, elapsed_time)
 
         if verbose:
             small_size = 10
@@ -181,8 +199,15 @@ class Population():
     def summary(self):
         values = self.fitness_function.apply(self.population)
         best_vector = self.best_vector()
+        label_len = len(self.label)
+        width = 80
+        border_width = int((80-label_len-6) / 2)
+        print("="*width)
+        print("="*border_width + self.label.center(label_len+6) + "="*border_width)
+        print("="*width)
         print(f"best value: {min(values)}")
         print(f"best vector: {best_vector}")
+        print()
 
     def evaluate(self):
         values = self.fitness_function.apply(self.population)
