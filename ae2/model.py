@@ -1,6 +1,8 @@
 import os
 import random
+import time
 
+from tqdm import tqdm
 from matplotlib import pyplot as plt
 
 
@@ -48,7 +50,8 @@ class Individual:
         self.radius = radius
         self.columns = []
 
-    def random_fill(self, shapes):
+    def random_fill(self, _shapes):
+        shapes = _shapes.copy()
         max_width = self.radius*2
         while self.width < max_width and len(shapes) > 0:
             shape = random.choice(shapes)
@@ -111,9 +114,20 @@ class Population:
     def __init__(self):
         self.individuals = []
 
+    def next_generation(self):
+        # TODO: implement next generation
+        return self
+        
+
     def add_individual(self, individual):
         self.individuals.append(individual)
 
+    def best_individual(self):
+        return max(self.individuals, key=lambda individual: individual.evaluate())
+
+    @property
+    def best_evaluation(self):
+        return max([individual.evaluate() for individual in self.individuals])
 
 class Cutting:
 
@@ -138,14 +152,33 @@ class Cutting:
             ))
         
     def populate(self):
-        population = Population()
+        self.population = Population()
         for i in range(self.population_size):
             individual = Individual(self.radius)
             individual.random_fill(self.shapes)
-            population.add_individual(individual)
-            print(individual.evaluate())
-            individual.plot()
+            self.population.add_individual(individual)
         
+    def train(self, target_value=None, iterations=1000, verbose=True):
+        iterator = (
+            tqdm(range(iterations), bar_format="{l_bar}%s{bar}%s{r_bar}" % ("\033[94m", "\033[0m"), desc=f"Best Eval: {self.population.best_evaluation}")  if verbose else
+            range(iterations)
+        )
+        for i in iterator:
+            if target_value is not None and self.population.best_evaluation >= target_value:
+                if verbose:
+                    iterator.set_description(f"Best Eval: {self.population.best_evaluation}")
+                break
+            if verbose:
+                iterator.set_description(f"Best Eval: {self.population.best_evaluation}")
+
+            self.population = self.population.next_generation()
+            time.sleep(0.08)
+
+        print(f"===============================")
+        print(f"Finished training after {i+1} iterations")
+        print(f"Best evaluation: {self.population.best_evaluation}")
+        print(f"===============================")
+        self.population.best_individual().plot()
 
     def print_shapes(self):
         for shape in self.shapes:
@@ -153,4 +186,11 @@ class Cutting:
 
 
 if __name__ == '__main__':
-    Cutting(radius=800, population_size=1)
+    radius = 800
+    target = 30000
+    # radius = 850
+    # target = 30000
+    cutting = Cutting(radius=radius, population_size=1)
+    cutting.train(target_value=target, iterations=100, verbose=True)
+    # cutting.train(iterations=100, verbose=True)
+
