@@ -39,6 +39,10 @@ class Rectangle:
                 (self.x, self.y + self.shape.height),
                 (self.x + self.shape.width, self.y + self.shape.height)]
 
+    @property
+    def center(self):
+        return (self.x + self.shape.width/2, self.y + self.shape.height/2)
+
 class Individual:
     def __init__(self, radius):
         self.radius = radius
@@ -85,8 +89,10 @@ class Individual:
                 rectangle.shape.height,
                 edgecolor='black',
                 facecolor='green' if rectangle.fits_in_the_circle(self.radius) else 'none',
+                alpha=0.5
             )
             ax.add_artist(rect)
+            ax.text(rectangle.center[0], rectangle.center[1], rectangle.shape.value, ha='center', va='center', fontsize=8)
         ax.set_aspect('equal')
         ax.set_xlim(-self.radius-1, self.radius+1)
         ax.set_ylim(-self.radius-1, self.radius+1)
@@ -147,4 +153,4 @@ class Cutting:
 
 
 if __name__ == '__main__':
-    Cutting(radius=1000, population_size=1)
+    Cutting(radius=800, population_size=1)
