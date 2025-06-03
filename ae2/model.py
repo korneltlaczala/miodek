@@ -72,12 +72,12 @@ class Individual:
                 value += rectangle.shape.value
         return value
 
-    def plot(self):
+    def plot(self, hide_outsiders=False):
         fig, ax = plt.subplots()
         circle = plt.Circle((0, 0), self.radius, edgecolor='black', facecolor='none')
         ax.add_artist(circle)
         for rectangle in self.generate_rectangles():
-            if not rectangle.touches_the_circle(self.radius):
+            if not rectangle.touches_the_circle(self.radius) and hide_outsiders:
                 continue
             rect = plt.Rectangle(
                 (rectangle.x, rectangle.y),
