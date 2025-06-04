@@ -50,6 +50,16 @@ class Individual:
         self.radius = radius
         self.columns = []
 
+    def match_width(self, shapes):
+        self.strip()
+        self.random_fill(shapes)
+
+    def strip(self):
+        curr_width = self.width
+        while curr_width > self.radius*2:
+            column = self.columns.pop()
+            curr_width -= column.width
+    
     def random_fill(self, _shapes):
         shapes = _shapes.copy()
         max_width = self.radius*2
@@ -59,6 +69,17 @@ class Individual:
                 shapes.remove(shape)
                 continue
             self.columns.append(shape)
+
+    def crossover(self, other, shapes):
+        child = Individual(self.radius)
+        # child.columns = random.sample(self.columns, len(self.columns)//2) + random.sample(other.columns, len(other.columns)//2)
+        crossover_point = random.randint(0, len(self.columns)-1)
+        child.columns = self.columns[:crossover_point] + other.columns[crossover_point:]
+        child.match_width(shapes)
+        return child
+
+    def mutate(self):
+        random.shuffle(self.columns)
 
     def generate_rectangles(self):
         rectangles = []
@@ -80,7 +101,7 @@ class Individual:
         return value
 
     def plot(self, hide_outsiders=False):
-        fig, ax = plt.subplots()
+        fig, ax = plt.subplots(figsize=(8, 8))
         circle = plt.Circle((0, 0), self.radius, edgecolor='black', facecolor='none')
         ax.add_artist(circle)
         for rectangle in self.generate_rectangles():
@@ -111,23 +132,58 @@ class Individual:
 
 
 class Population:
-    def __init__(self):
+    def __init__(self, size, shapes):
+        self.size = size
+        self.shapes = shapes
         self.individuals = []
 
     def next_generation(self):
-        # TODO: implement next generation
-        return self
+        parents = self.get_parents()
+        children = self.get_children(parents)
+        new_population = Population(self.size, self.shapes)
+        new_population.individuals = children
+        new_population.add_individual(self.best_individual())
+        new_population.remove_individual(new_population.worst_individual())
+        return new_population
         
+    def get_parents(self):
+        parents = []
+        for i in range(self.size):
+            sample_size = max(2, self.size * 0.1)
+            parent1 = self.tournament_selection(random.sample(self.individuals, sample_size))
+            parent2 = self.tournament_selection(random.sample(self.individuals, sample_size))
+            parents.append((parent1, parent2))
+        return parents
+
+    def get_children(self, parents):
+        children = []
+        for parent1, parent2 in parents:
+            child = parent1.crossover(parent2, self.shapes)
+            child.mutate()
+            children.append(child)
+        return children
+
+    def tournament_selection(self, sample):
+        return max(sample, key=lambda individual: individual.evaluate())
 
     def add_individual(self, individual):
         self.individuals.append(individual)
 
+    def remove_individual(self, individual):
+        self.individuals.remove(individual)
+
     def best_individual(self):
         return max(self.individuals, key=lambda individual: individual.evaluate())
+
+    def worst_individual(self):
+        return min(self.individuals, key=lambda individual: individual.evaluate())
 
     @property
     def best_evaluation(self):
         return max([individual.evaluate() for individual in self.individuals])
+
+    def __str__(self):
+        return f"Population with {len(self.individuals)} individuals"
 
 class Cutting:
 
@@ -138,6 +194,7 @@ class Cutting:
         self.data_file = os.path.join(self.data_folder, f'r{radius}.csv')
         self.read_shapes()
         self.populate()
+        self.history = []
 
 
     def read_shapes(self):
@@ -152,7 +209,7 @@ class Cutting:
             ))
         
     def populate(self):
-        self.population = Population()
+        self.population = Population(self.population_size, self.shapes)
         for i in range(self.population_size):
             individual = Individual(self.radius)
             individual.random_fill(self.shapes)
@@ -171,26 +228,39 @@ class Cutting:
             if verbose:
                 iterator.set_description(f"Best Eval: {self.population.best_evaluation}")
 
-            self.population = self.population.next_generation()
-            time.sleep(0.08)
+            self.next_generation()
 
         print(f"===============================")
         print(f"Finished training after {i+1} iterations")
         print(f"Best evaluation: {self.population.best_evaluation}")
         print(f"===============================")
-        self.population.best_individual().plot()
+
+    def next_generation(self):
+        self.history.append(self.population.best_evaluation)
+        self.population = self.population.next_generation()
 
     def print_shapes(self):
         for shape in self.shapes:
             print(shape)
 
+    def plot_history(self):
+        plt.figure(figsize=(7, 5))
+        plt.plot(self.history)
+        plt.show()
+
+    def plot_best(self):
+        self.population.best_individual().plot(hide_outsiders=True)
+
+    def plot_result(self):
+        fig, axes = plt.subplots(1, 2, figsize=(20, 8))
+        axes[0].plot(self.history)
+        axes[1].axis('off')
+        axes[1].imshow(self.population.best_individual().plot(hide_outsiders=True))
+        plt.show()
 
 if __name__ == '__main__':
     radius = 800
     target = 30000
-    # radius = 850
-    # target = 30000
-    cutting = Cutting(radius=radius, population_size=1)
-    cutting.train(target_value=target, iterations=100, verbose=True)
-    # cutting.train(iterations=100, verbose=True)
-
+    cutting = Cutting(radius=radius, population_size=10)
+    # cutting.train(target_value=target, iterations=100, verbose=True)
+    cutting.train(iterations=100, verbose=True)
