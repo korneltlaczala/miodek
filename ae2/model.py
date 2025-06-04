@@ -78,8 +78,10 @@ class Individual:
         child.match_width(shapes)
         return child
 
-    def mutate(self):
-        random.shuffle(self.columns)
+    def mutate(self, mutation_rate):
+        if random.random() < mutation_rate:
+            random.shuffle(self.columns)
+        # random.shuffle(self.columns)
 
     def generate_rectangles(self):
         rectangles = []
@@ -121,6 +123,7 @@ class Individual:
         ax.set_xlim(-self.radius-1, self.radius+1)
         ax.set_ylim(-self.radius-1, self.radius+1)
         ax.set_axis_off()
+        plt.title(f"Total value: {self.evaluate()}")
         plt.show()
 
     @property
@@ -135,6 +138,7 @@ class Population:
     def __init__(self, size, shapes):
         self.size = size
         self.shapes = shapes
+        self.MUTATION_RATE = 0.2
         self.individuals = []
 
     def next_generation(self):
@@ -159,7 +163,7 @@ class Population:
         children = []
         for parent1, parent2 in parents:
             child = parent1.crossover(parent2, self.shapes)
-            child.mutate()
+            child.mutate(self.MUTATION_RATE)
             children.append(child)
         return children
 
@@ -244,8 +248,17 @@ class Cutting:
             print(shape)
 
     def plot_history(self):
+
+        best_val = self.history[-1]
+        first_best_gen = self.history.index(best_val)
+        relevant_history = self.history[:int(first_best_gen*1.2)+1]
+
         plt.figure(figsize=(7, 5))
-        plt.plot(self.history)
+        plt.plot(relevant_history)
+        plt.grid(True)
+        plt.title("Best evaluation for each generation")
+        plt.xlabel("Generations")
+        plt.ylabel("Best evaluation")
         plt.show()
 
     def plot_best(self):
