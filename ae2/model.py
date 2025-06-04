@@ -153,7 +153,7 @@ class Population:
     def get_parents(self):
         parents = []
         for i in range(self.size):
-            sample_size = max(2, self.size * 0.1)
+            sample_size = max(2, int(self.size * 0.1))
             parent1 = self.tournament_selection(random.sample(self.individuals, sample_size))
             parent2 = self.tournament_selection(random.sample(self.individuals, sample_size))
             parents.append((parent1, parent2))
