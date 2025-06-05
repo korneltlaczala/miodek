@@ -26,6 +26,5 @@ class SelfOrganizingMap:
 
 
 if __name__ == '__main__':
-    pass
-    # som = SelfOrganizingMap(dataset_name="cube")
-    # som.plot_data()
+    som = SelfOrganizingMap(dataset_name="cube")
+    som.plot_data()
