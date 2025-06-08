@@ -1,14 +1,23 @@
+import matplotlib.pyplot as plt
+import random
+import numpy as np
 import pandas as pd
+from tqdm import tqdm, trange
 from mpl_toolkits.mplot3d import Axes3D
 
+# class MapHistory
+
 class SelfOrganizingMap:
-    def __init__(self, dataset_name=None, data_X=None, data_y=None):
+    def __init__(self, dataset_name=None, data_X=None, data_y=None, width=10, height=10):
         self.dataset_name = dataset_name
         self.data_X = data_X
         self.data_y = data_y
-        self.read_data()
+        self.width = width
+        self.height = height
+        self._read_data()
+        self._init_map()
 
-    def read_data(self):
+    def _read_data(self):
         if self.dataset_name is None:
             if self.data_X is None or self.data_y is None:
                 raise ValueError("Please provide either dataset_name or data_X and data_y")
@@ -22,17 +31,104 @@ class SelfOrganizingMap:
             self.data_y = data["c"]
         self.data_dim = self.data_X.shape[1]
 
-    def plot_data(self):
-        import matplotlib.pyplot as plt
+    def _init_map(self):
+        ranges = []
+        for dim in range(self.data_dim):
+            ranges.append((self.data_X.iloc[:,dim].min(), self.data_X.iloc[:,dim].max()))
+        
+        x = np.linspace(ranges[0][0], ranges[0][1], self.width)
+        y = np.linspace(ranges[1][0], ranges[1][1], self.height)
+        self.map = np.zeros((self.width, self.height, self.data_dim))
+        for i in range(self.width):
+            for j in range(self.height):
+                vector = np.array([x[i], y[j]])
+                for dim in range(2, self.data_dim):
+                    vector = np.append(vector, random.uniform(ranges[dim][0], ranges[dim][1]))
+                self.map[i][j] = vector
+                      
+
+    def train(self, epochs, lambda_decay=10, sigma=1, proximity_function="neg_second_gaussian_derivative", verbose=True, visualize=False):
+
+        iterator = (
+            tqdm(range(epochs), ncols=100, colour='green') if verbose else
+            range(epochs)
+        )
+
+        for epoch in iterator:
+            alpha = np.exp(-epoch/lambda_decay)
+            for data_point in self.data_X.sample(frac=1).values:
+                bmu = self._find_bmu(data_point)
+                self.move_map(bmu, data_point, alpha, sigma, proximity_function)
+
+            if visualize:
+                self.plot()
+
+    def move_map(self, bmu, data_point, alpha, sigma, proximity_function):
+        for i in range(self.width):
+            for j in range(self.height):
+                distance = np.linalg.norm(np.array([i, j]) - np.array(bmu))
+                self.map[i][j] += alpha * 1/100 * (data_point - self.map[i][j]) * self.proximity_coeff(distance, sigma, proximity_function)
+
+    def proximity_coeff(self, distance, sigma, function):
+        if function == "gaussian":
+            return np.exp(-distance**2 / (2 * sigma**2))
+
+        if function == "neg_second_gaussian_derivative":
+            return distance * np.exp(-distance**2 / (2 * sigma**2))
+
+    def _find_bmu(self, data_point):
+        distances = np.linalg.norm(self.map - data_point, axis=2)
+        return np.unravel_index(distances.argmin(), distances.shape)
+
+    def demonstrate_bmu(self):
+        data_point = self.data_X.sample(frac=1).values[0]
+        bmu = self._find_bmu(data_point)
+        self.plot_point_and_bmu(data_point, bmu)
+
+    def plot_data(self, show=True):
         if self.data_dim == 2:
             plt.scatter(self.data_X.iloc[:, 0], self.data_X.iloc[:, 1], c=self.data_y)
         if self.data_dim > 2:
             fig = plt.figure()
             ax = fig.add_subplot(111, projection='3d')
             ax.scatter(self.data_X.iloc[:, 0], self.data_X.iloc[:, 1], self.data_X.iloc[:, 2], c=self.data_y)
-        plt.show()
+        if show:
+            plt.show()
+        return plt
+
+    def plot(self, show=True):
+        if self.data_dim == 2:
+            plt.scatter(self.data_X.iloc[:, 0], self.data_X.iloc[:, 1], c=self.data_y, s=10)
+            plt.scatter(self.map[:,:,0].flatten(), self.map[:,:,1].flatten(), facecolors='none', edgecolors='red', s=5)
+            if show:
+                plt.show()
+            return plt.gca()
+
+        if self.data_dim > 2:
+            fig = plt.figure()
+            ax = fig.add_subplot(111, projection='3d')
+            ax.scatter(self.data_X.iloc[:, 0], self.data_X.iloc[:, 1], self.data_X.iloc[:, 2], c=self.data_y, s=10)
+            ax.scatter(self.map[:,:,0].flatten(), self.map[:,:,1].flatten(), self.map[:,:,2].flatten(), facecolors='none', edgecolors='red', s=5)
+            if show:
+                plt.show()
+            return ax
+
+    def plot_point_and_bmu(self, point, bmu, show=True):
+        if self.data_dim == 2:
+            plt = self.plot(show=False)
+            plt.scatter(point[0], point[1], facecolors="none", edgecolors="black", s=30)
+            plt.scatter(self.map[bmu[0], bmu[1], 0], self.map[bmu[0], bmu[1], 1], facecolors="none", edgecolors="black", s=30)
+
+        if self.data_dim > 2:
+            ax = self.plot(show=False)
+            ax.scatter(point[0], point[1], point[2], facecolors="none", edgecolors="black", s=30)
+            ax.scatter(self.map[bmu[0], bmu[1], 0], self.map[bmu[0], bmu[1], 1], self.map[bmu[0], bmu[1], 2], facecolors="none", edgecolors="black", s=30)
+                
+        if show:
+            import matplotlib.pyplot as plt
+            plt.show()
 
 
 if __name__ == '__main__':
-    som = SelfOrganizingMap(dataset_name="cube")
-    som.plot_data()
+    som = SelfOrganizingMap(dataset_name="cube", width=8, height=8)
+    som.train(epochs=20, visualize=True)
