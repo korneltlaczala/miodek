@@ -5,7 +5,32 @@ import pandas as pd
 from tqdm import tqdm, trange
 from mpl_toolkits.mplot3d import Axes3D
 
-# class MapHistory
+class MapHistory():
+    def __init__(self):
+        self.history = []
+
+    def add(self, map, epoch=None, iteration=None):
+        self.history.append({
+            "map": map.copy(),
+            "epoch": epoch,
+            "iteration": iteration,
+        })
+
+    def animate(self, delay=0.5):
+        plt.ion()
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+        for i, map in enumerate(self.history):
+            ax.clear()
+            ax.scatter(map['map'][:,:,0].flatten(), map['map'][:,:,1].flatten(), map['map'][:,:,2].flatten(),
+                       c='red', s=30)
+            ax.set_title(f"Epoch: {map['epoch']}, Iteration: {map['iteration']}")
+            fig.canvas.draw()
+            fig.canvas.flush_events()
+            plt.pause(delay)
+
+        plt.ioff()
+        plt.show()
 
 class SelfOrganizingMap:
     def __init__(self, dataset_name=None, data_X=None, data_y=None, width=10, height=10):
@@ -16,6 +41,8 @@ class SelfOrganizingMap:
         self.height = height
         self._read_data()
         self._init_map()
+        self.map_detail_history = MapHistory()
+        self.map_history = MapHistory()
 
     def _read_data(self):
         if self.dataset_name is None:
@@ -56,9 +83,11 @@ class SelfOrganizingMap:
 
         for epoch in iterator:
             alpha = np.exp(-epoch/lambda_decay)
-            for data_point in self.data_X.sample(frac=1).values:
+            for index, data_point in enumerate(self.data_X.sample(frac=1).values):
                 bmu = self._find_bmu(data_point)
                 self.move_map(bmu, data_point, alpha, sigma, proximity_function)
+                self.map_detail_history.add(self.map, epoch, index)
+            self.map_history.add(self.map, epoch)
 
             if visualize:
                 self.plot()
@@ -67,7 +96,7 @@ class SelfOrganizingMap:
         for i in range(self.width):
             for j in range(self.height):
                 distance = np.linalg.norm(np.array([i, j]) - np.array(bmu))
-                self.map[i][j] += alpha * 1/100 * (data_point - self.map[i][j]) * self.proximity_coeff(distance, sigma, proximity_function)
+                self.map[i][j] += alpha * 1/10 * (data_point - self.map[i][j]) * self.proximity_coeff(distance, sigma, proximity_function)
 
     def proximity_coeff(self, distance, sigma, function):
         if function == "gaussian":
@@ -128,7 +157,14 @@ class SelfOrganizingMap:
             import matplotlib.pyplot as plt
             plt.show()
 
+    def plot_history(self):
+        self.map_history.animate()
+
 
 if __name__ == '__main__':
     som = SelfOrganizingMap(dataset_name="cube", width=8, height=8)
-    som.train(epochs=20, visualize=True)
+    # som.train(epochs=20, visualize=True)
+    som.train(epochs=10)
+    som.plot(show=True)
+    som.plot_history()
+
