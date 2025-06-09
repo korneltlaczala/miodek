@@ -4,10 +4,12 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm, trange
 from mpl_toolkits.mplot3d import Axes3D
+import copy
 
 class MapHistory():
-    def __init__(self):
+    def __init__(self, map):
         self.history = []
+        self.map = map
 
     def add(self, map, epoch=None, iteration=None):
         self.history.append({
@@ -16,15 +18,18 @@ class MapHistory():
             "iteration": iteration,
         })
 
-    def animate(self, delay=0.5):
+    def animate(self, delay=0.5, show_data=False):
         plt.ion()
         fig = plt.figure()
-        ax = fig.add_subplot(111, projection='3d')
+        ax = fig.add_subplot(111, projection='3d')  
         for i, map in enumerate(self.history):
             ax.clear()
-            ax.scatter(map['map'][:,:,0].flatten(), map['map'][:,:,1].flatten(), map['map'][:,:,2].flatten(),
-                       c='red', s=30)
-            ax.set_title(f"Epoch: {map['epoch']}, Iteration: {map['iteration']}")
+            if self.map.data_dim == 2:
+                ax.scatter(map['map'][:,:,0].flatten(), map['map'][:,:,1].flatten(), c='red', s=30)
+            if self.map.data_dim > 2:
+                ax.scatter(map['map'][:,:,0].flatten(), map['map'][:,:,1].flatten(), map['map'][:,:,2].flatten(),
+                    c='red', s=30)
+            ax.set_title(f"Epoch: {map['epoch']+1}, Iteration: {map['iteration']}")
             fig.canvas.draw()
             fig.canvas.flush_events()
             plt.pause(delay)
@@ -41,8 +46,8 @@ class SelfOrganizingMap:
         self.height = height
         self._read_data()
         self._init_map()
-        self.map_detail_history = MapHistory()
-        self.map_history = MapHistory()
+        self.map_detail_history = MapHistory(self)
+        self.map_history = MapHistory(self)
 
     def _read_data(self):
         if self.dataset_name is None:
@@ -74,7 +79,7 @@ class SelfOrganizingMap:
                 self.map[i][j] = vector
                       
 
-    def train(self, epochs, lambda_decay=10, sigma=1, proximity_function="neg_second_gaussian_derivative", verbose=True, visualize=False):
+    def train(self, epochs, lambda_decay=10, sigma=1, proximity_function="gaussian", verbose=True, visualize=False):
 
         iterator = (
             tqdm(range(epochs), ncols=100, colour='green') if verbose else
@@ -157,14 +162,15 @@ class SelfOrganizingMap:
             import matplotlib.pyplot as plt
             plt.show()
 
-    def plot_history(self):
-        self.map_history.animate()
+    def plot_history(self, delay=0.5):
+        self.map_history.animate(delay=delay)
 
 
 if __name__ == '__main__':
     som = SelfOrganizingMap(dataset_name="cube", width=8, height=8)
     # som.train(epochs=20, visualize=True)
-    som.train(epochs=10)
+    # som.train(epochs=10, proximity_function="neg_second_gaussian_derivative")
+    som.train(epochs=30)
     som.plot(show=True)
-    som.plot_history()
+    som.plot_history(delay=0.1)
 
