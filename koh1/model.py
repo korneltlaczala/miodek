@@ -1,10 +1,11 @@
+from matplotlib.animation import FuncAnimation
 import matplotlib.pyplot as plt
 import random
+from matplotlib.widgets import Button, Slider
 import numpy as np
 import pandas as pd
 from tqdm import tqdm, trange
 from mpl_toolkits.mplot3d import Axes3D
-import copy
 
 class MapHistory():
     def __init__(self, map):
@@ -19,22 +20,83 @@ class MapHistory():
         })
 
     def animate(self, delay=0.5, show_data=False):
-        plt.ion()
-        fig = plt.figure()
-        ax = fig.add_subplot(111, projection='3d')  
-        for i, map in enumerate(self.history):
-            ax.clear()
-            if self.map.data_dim == 2:
-                ax.scatter(map['map'][:,:,0].flatten(), map['map'][:,:,1].flatten(), c='red', s=30)
-            if self.map.data_dim > 2:
-                ax.scatter(map['map'][:,:,0].flatten(), map['map'][:,:,1].flatten(), map['map'][:,:,2].flatten(),
-                    c='red', s=30)
-            ax.set_title(f"Epoch: {map['epoch']+1}, Iteration: {map['iteration']}")
-            fig.canvas.draw()
-            fig.canvas.flush_events()
-            plt.pause(delay)
+        from mpl_toolkits.mplot3d import Axes3D  # needed for 3D projection
+        import numpy as np
 
-        plt.ioff()
+        # Prepare figure
+        fig = plt.figure(figsize=(8, 6))
+        ax = fig.add_subplot(111, projection='3d' if self.map.data_dim > 2 else None)
+
+        plt.subplots_adjust(bottom=0.25)  # Make space for slider and button
+
+        # Initial plot
+        scatter = None
+        title = ax.set_title("")
+
+        def draw_frame(i):
+            nonlocal scatter
+            ax.clear()
+            m = self.history[i]
+            coords = m['map']
+            if self.map.data_dim == 2:
+                if show_data:
+                    ax.scatter(self.map.data_X.iloc[:, 0], self.map.data_X.iloc[:, 1], c=self.map.data_y, s=10)
+                scatter = ax.scatter(coords[:, :, 0].flatten(), coords[:, :, 1].flatten(), facecolors='none', edgecolors='red', s=30)
+                for i in range(self.map.width-1):
+                    for j in range(self.map.height-1):
+                        ax.plot([coords[i,j,0], coords[i+1,j,0]], [coords[i,j,1], coords[i+1,j,1]], c='black', lw=0.5)
+                        ax.plot([coords[i,j,0], coords[i,j+1,0]], [coords[i,j,1], coords[i,j+1,1]], c='black', lw=0.5)
+                ax.set_xlim(self.map.ranges[0][0], self.map.ranges[0][1])
+                ax.set_ylim(self.map.ranges[1][0], self.map.ranges[1][1])
+            else:
+                if show_data:
+                    ax.scatter(self.map.data_X.iloc[:, 0], self.map.data_X.iloc[:, 1], self.map.data_X.iloc[:, 2], c=self.map.data_y, s=10)
+                scatter = ax.scatter(coords[:, :, 0].flatten(), coords[:, :, 1].flatten(), coords[:, :, 2].flatten(),
+                                    facecolors='none', edgecolors='red', s=30)
+                for i in range(self.map.width-1):
+                    for j in range(self.map.height-1):
+                        ax.plot3D([coords[i,j,0], coords[i+1,j,0]], [coords[i,j,1], coords[i+1,j,1]], [coords[i,j,2], coords[i+1,j,2]], c='black', lw=0.5)
+                        ax.plot3D([coords[i,j,0], coords[i,j+1,0]], [coords[i,j,1], coords[i,j+1,1]], [coords[i,j,2], coords[i,j+1,2]], c='black', lw=0.5)
+                ax.set_xlim(self.map.ranges[0][0], self.map.ranges[0][1])
+                ax.set_ylim(self.map.ranges[1][0], self.map.ranges[1][1])
+                ax.set_zlim(self.map.ranges[2][0], self.map.ranges[2][1])
+
+            ax.set_title(f"Epoch: {m['epoch']+1}, Iteration: {m['iteration']}")
+
+        # Draw the first frame
+        draw_frame(0)
+
+        # Slider
+        ax_slider = plt.axes([0.15, 0.1, 0.7, 0.03])
+        slider = Slider(ax_slider, 'Epoch', 0, len(self.history) - 1, valinit=0, valstep=1)
+
+        # Play/Pause button
+        ax_button = plt.axes([0.85, 0.02, 0.1, 0.04])
+        button = Button(ax_button, 'Pause')
+
+        is_paused = False
+
+        def on_slider_change(val):
+            draw_frame(int(val))
+            fig.canvas.draw_idle()
+
+        slider.on_changed(on_slider_change)
+
+        def on_button_clicked(event):
+            nonlocal is_paused
+            is_paused = not is_paused
+            button.label.set_text('Play' if is_paused else 'Pause')
+
+        button.on_clicked(on_button_clicked)
+
+        # Automatic animation
+        def update(frame):
+            if not is_paused:
+                new_val = (int(slider.val) + 1) % len(self.history)
+                slider.set_val(new_val)
+
+        anim = FuncAnimation(fig, update, interval=delay * 1000)
+
         plt.show()
 
 class SelfOrganizingMap:
@@ -64,18 +126,18 @@ class SelfOrganizingMap:
         self.data_dim = self.data_X.shape[1]
 
     def _init_map(self):
-        ranges = []
+        self.ranges = []
         for dim in range(self.data_dim):
-            ranges.append((self.data_X.iloc[:,dim].min(), self.data_X.iloc[:,dim].max()))
+            self.ranges.append((self.data_X.iloc[:,dim].min(), self.data_X.iloc[:,dim].max()))
         
-        x = np.linspace(ranges[0][0], ranges[0][1], self.width)
-        y = np.linspace(ranges[1][0], ranges[1][1], self.height)
+        x = np.linspace(self.ranges[0][0], self.ranges[0][1], self.width)
+        y = np.linspace(self.ranges[1][0], self.ranges[1][1], self.height)
         self.map = np.zeros((self.width, self.height, self.data_dim))
         for i in range(self.width):
             for j in range(self.height):
                 vector = np.array([x[i], y[j]])
                 for dim in range(2, self.data_dim):
-                    vector = np.append(vector, random.uniform(ranges[dim][0], ranges[dim][1]))
+                    vector = np.append(vector, random.uniform(self.ranges[dim][0], self.ranges[dim][1]))
                 self.map[i][j] = vector
                       
 
@@ -134,6 +196,11 @@ class SelfOrganizingMap:
         if self.data_dim == 2:
             plt.scatter(self.data_X.iloc[:, 0], self.data_X.iloc[:, 1], c=self.data_y, s=10)
             plt.scatter(self.map[:,:,0].flatten(), self.map[:,:,1].flatten(), facecolors='none', edgecolors='red', s=5)
+
+            for i in range(self.width-1):
+                for j in range(self.height-1):
+                    plt.plot([self.map[i,j,0], self.map[i+1,j,0]], [self.map[i,j,1], self.map[i+1,j,1]], c='black', lw=0.5)
+                    plt.plot([self.map[i,j,0], self.map[i,j+1,0]], [self.map[i,j,1], self.map[i,j+1,1]], c='black', lw=0.5)
             if show:
                 plt.show()
             return plt.gca()
@@ -143,6 +210,11 @@ class SelfOrganizingMap:
             ax = fig.add_subplot(111, projection='3d')
             ax.scatter(self.data_X.iloc[:, 0], self.data_X.iloc[:, 1], self.data_X.iloc[:, 2], c=self.data_y, s=10)
             ax.scatter(self.map[:,:,0].flatten(), self.map[:,:,1].flatten(), self.map[:,:,2].flatten(), facecolors='none', edgecolors='red', s=5)
+
+            for i in range(self.width-1):
+                for j in range(self.height-1):
+                    ax.plot3D([self.map[i,j,0], self.map[i+1,j,0]], [self.map[i,j,1], self.map[i+1,j,1]], [self.map[i,j,2], self.map[i+1,j,2]], c='black', lw=0.5)
+                    ax.plot3D([self.map[i,j,0], self.map[i,j+1,0]], [self.map[i,j,1], self.map[i,j+1,1]], [self.map[i,j,2], self.map[i,j+1,2]], c='black', lw=0.5)
             if show:
                 plt.show()
             return ax
@@ -162,15 +234,14 @@ class SelfOrganizingMap:
             import matplotlib.pyplot as plt
             plt.show()
 
-    def plot_history(self, delay=0.5):
-        self.map_history.animate(delay=delay)
+    def show_history(self, delay=0.5, show_data=False):
+        self.map_history.animate(delay=delay, show_data=show_data)
 
 
 if __name__ == '__main__':
-    som = SelfOrganizingMap(dataset_name="cube", width=8, height=8)
+    som = SelfOrganizingMap(dataset_name="cube", width=15, height=15)
     # som.train(epochs=20, visualize=True)
     # som.train(epochs=10, proximity_function="neg_second_gaussian_derivative")
-    som.train(epochs=30)
+    som.train(epochs=15)
     som.plot(show=True)
-    som.plot_history(delay=0.1)
-
+    som.show_history(delay=0.3, show_data=True)
