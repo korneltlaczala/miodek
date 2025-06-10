@@ -33,19 +33,19 @@ class MapHistory():
         scatter = None
         title = ax.set_title("")
 
-        def draw_frame(i):
+        def draw_frame(frame_nr):
             nonlocal scatter
             ax.clear()
-            m = self.history[i]
+            m = self.history[frame_nr]
             coords = m['map']
             if self.map.data_dim == 2:
                 if show_data:
                     ax.scatter(self.map.data_X.iloc[:, 0], self.map.data_X.iloc[:, 1], c=self.map.data_y, s=10)
                 scatter = ax.scatter(coords[:, :, 0].flatten(), coords[:, :, 1].flatten(), facecolors='none', edgecolors='red', s=30)
-                for i in range(self.map.width-1):
-                    for j in range(self.map.height-1):
-                        ax.plot([coords[i,j,0], coords[i+1,j,0]], [coords[i,j,1], coords[i+1,j,1]], c='black', lw=0.5)
-                        ax.plot([coords[i,j,0], coords[i,j+1,0]], [coords[i,j,1], coords[i,j+1,1]], c='black', lw=0.5)
+                for i in range(self.map.width):
+                    for j in range(self.map.height):
+                        ax.plot([coords[i,j,0], coords[i+1,j,0]], [coords[i,j,1], coords[i+1,j,1]], c='black', lw=0.5) if i < self.map.width-1 else None
+                        ax.plot([coords[i,j,0], coords[i,j+1,0]], [coords[i,j,1], coords[i,j+1,1]], c='black', lw=0.5) if j < self.map.height-1 else None
                 ax.set_xlim(self.map.ranges[0][0], self.map.ranges[0][1])
                 ax.set_ylim(self.map.ranges[1][0], self.map.ranges[1][1])
             else:
@@ -53,10 +53,10 @@ class MapHistory():
                     ax.scatter(self.map.data_X.iloc[:, 0], self.map.data_X.iloc[:, 1], self.map.data_X.iloc[:, 2], c=self.map.data_y, s=10)
                 scatter = ax.scatter(coords[:, :, 0].flatten(), coords[:, :, 1].flatten(), coords[:, :, 2].flatten(),
                                     facecolors='none', edgecolors='red', s=30)
-                for i in range(self.map.width-1):
-                    for j in range(self.map.height-1):
-                        ax.plot3D([coords[i,j,0], coords[i+1,j,0]], [coords[i,j,1], coords[i+1,j,1]], [coords[i,j,2], coords[i+1,j,2]], c='black', lw=0.5)
-                        ax.plot3D([coords[i,j,0], coords[i,j+1,0]], [coords[i,j,1], coords[i,j+1,1]], [coords[i,j,2], coords[i,j+1,2]], c='black', lw=0.5)
+                for i in range(self.map.width):
+                    for j in range(self.map.height):
+                        ax.plot3D([coords[i,j,0], coords[i+1,j,0]], [coords[i,j,1], coords[i+1,j,1]], [coords[i,j,2], coords[i+1,j,2]], c='black', lw=0.5) if i < self.map.width - 1 else None
+                        ax.plot3D([coords[i,j,0], coords[i,j+1,0]], [coords[i,j,1], coords[i,j+1,1]], [coords[i,j,2], coords[i,j+1,2]], c='black', lw=0.5) if j < self.map.height - 1 else None
                 ax.set_xlim(self.map.ranges[0][0], self.map.ranges[0][1])
                 ax.set_ylim(self.map.ranges[1][0], self.map.ranges[1][1])
                 ax.set_zlim(self.map.ranges[2][0], self.map.ranges[2][1])
@@ -197,12 +197,10 @@ class SelfOrganizingMap:
             plt.scatter(self.data_X.iloc[:, 0], self.data_X.iloc[:, 1], c=self.data_y, s=10)
             plt.scatter(self.map[:,:,0].flatten(), self.map[:,:,1].flatten(), facecolors='none', edgecolors='red', s=5)
 
-            for i in range(self.width-1):
-                for j in range(self.height-1):
-                    plt.plot([self.map[i,j,0], self.map[i+1,j,0]], [self.map[i,j,1], self.map[i+1,j,1]], c='black', lw=0.5)
-                    plt.plot([self.map[i,j,0], self.map[i,j+1,0]], [self.map[i,j,1], self.map[i,j+1,1]], c='black', lw=0.5)
-            if show:
-                plt.show()
+            for i in range(self.width):
+                for j in range(self.height):
+                    plt.plot([self.map[i,j,0], self.map[i+1,j,0]], [self.map[i,j,1], self.map[i+1,j,1]], c='black', lw=0.5) if i < self.width-1 else None
+                    plt.plot([self.map[i,j,0], self.map[i,j+1,0]], [self.map[i,j,1], self.map[i,j+1,1]], c='black', lw=0.5) if j < self.height-1 else None
             return plt.gca()
 
         if self.data_dim > 2:
@@ -211,12 +209,10 @@ class SelfOrganizingMap:
             ax.scatter(self.data_X.iloc[:, 0], self.data_X.iloc[:, 1], self.data_X.iloc[:, 2], c=self.data_y, s=10)
             ax.scatter(self.map[:,:,0].flatten(), self.map[:,:,1].flatten(), self.map[:,:,2].flatten(), facecolors='none', edgecolors='red', s=5)
 
-            for i in range(self.width-1):
-                for j in range(self.height-1):
-                    ax.plot3D([self.map[i,j,0], self.map[i+1,j,0]], [self.map[i,j,1], self.map[i+1,j,1]], [self.map[i,j,2], self.map[i+1,j,2]], c='black', lw=0.5)
-                    ax.plot3D([self.map[i,j,0], self.map[i,j+1,0]], [self.map[i,j,1], self.map[i,j+1,1]], [self.map[i,j,2], self.map[i,j+1,2]], c='black', lw=0.5)
-            if show:
-                plt.show()
+            for i in range(self.width):
+                for j in range(self.height):
+                    ax.plot3D([self.map[i,j,0], self.map[i+1,j,0]], [self.map[i,j,1], self.map[i+1,j,1]], [self.map[i,j,2], self.map[i+1,j,2]], c='black', lw=0.5) if i < self.width-1 else None
+                    ax.plot3D([self.map[i,j,0], self.map[i,j+1,0]], [self.map[i,j,1], self.map[i,j+1,1]], [self.map[i,j,2], self.map[i,j+1,2]], c='black', lw=0.5) if j < self.height-1 else None
             return ax
 
     def plot_point_and_bmu(self, point, bmu, show=True):
@@ -237,11 +233,29 @@ class SelfOrganizingMap:
     def show_history(self, delay=0.5, show_data=False):
         self.map_history.animate(delay=delay, show_data=show_data)
 
+    def generate_projection(self):
+        x = []
+        y = []
+        for data_point in self.data_X.values:
+            bmu = self._find_bmu(data_point)
+            x.append(bmu[0] + (random.random() - 0.5) * 0.4)
+            y.append(bmu[1] + (random.random() - 0.5) * 0.4)
+            
+        return x, y
+
+    def plot_projection(self):
+        plt.scatter([[i for j in range(self.height)] for i in range(self.width)],
+                    [[j for j in range(self.height)] for i in range(self.width)],
+                    c="black", s=10)
+
+
+        x, y = self.generate_projection()
+        plt.scatter(x, y, c=self.data_y, s=10)
+        plt.show()
+
 
 if __name__ == '__main__':
-    som = SelfOrganizingMap(dataset_name="cube", width=15, height=15)
-    # som.train(epochs=20, visualize=True)
-    # som.train(epochs=10, proximity_function="neg_second_gaussian_derivative")
-    som.train(epochs=15)
+    som = SelfOrganizingMap(dataset_name="cube", width=20, height=20)
+    som.train(epochs=20, proximity_function="neg_second_gaussian_derivative")
     som.plot(show=True)
-    som.show_history(delay=0.3, show_data=True)
+    som.show_history(delay=0.2, show_data=True)
