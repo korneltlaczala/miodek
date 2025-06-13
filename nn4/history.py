@@ -41,5 +41,4 @@ class ModelHistory():
         plt.grid(True)
         plt.xlabel("Epoch")
         plt.ylabel(f"Loss ({self.model.data.loss_function})")
-        plt.legend(["Train", "Test"])
-        
+        plt.legend(["Train loss", "Test loss"])

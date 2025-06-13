@@ -1,7 +1,8 @@
+import os
 import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import accuracy_score, f1_score
+from sklearn.metrics import accuracy_score, f1_score, precision_score
 from activation_functions import *
 from history import ModelHistory
 from initializers import *
@@ -20,8 +21,9 @@ class MLPArchitecture():
 
 class DataSet():
 
-    def __init__(self, name, loss_function="mse"):
+    def __init__(self, name, data_dir, loss_function="mse"):
         self.name = name
+        self.data_dir = data_dir
         self.loss_function = loss_function
         self.read_data()
         self.scale_data()
@@ -73,7 +75,7 @@ class DataSet():
         self.y_test = self.y_scaler.transform(self.y_test.reshape(-1,1))
         
     def prep_df(self, filename):
-        df = pd.read_csv(f"data/{filename}")
+        df = pd.read_csv(os.path.join(self.data_dir, filename))
         df = df.drop(columns=["Unnamed: 0", "id"], errors="ignore")
         return df
 
@@ -293,6 +295,7 @@ class MLP():
             self,
             architecture,
             dataset_name,
+            data_dir="data",
             loss_function="mse",
             initializer=None,
             activation_func=None,
@@ -301,7 +304,7 @@ class MLP():
             name="model",
     ):
         self.architecture = architecture
-        self.data = DataSet(dataset_name, loss_function)
+        self.data = DataSet(dataset_name, data_dir, loss_function)
 
         self.initializer = initializer
         self.history = ModelHistory(self)
@@ -479,9 +482,11 @@ class MLP():
         plt.show()
 
     def plot_classification_comparison(self, y_pred=None):
+        self.classification_performance_summary()
         if y_pred is None:
             y_pred = self.predict_test()
         plt.figure(figsize=(12, 6))
+        plt.suptitle(f"Classification Comparison: {self.name} (Age: {self.age})", fontsize=16)
         plt.subplot(1, 2, 1)
         self.data.plot_classification()
         plt.title("True Classification")
@@ -491,16 +496,17 @@ class MLP():
         plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
         plt.show()
 
-        self.classification_performance_summary()
-
-    def plot_classification_data(self):
+    def plot_classification_data(self, title=None):
         plt.figure(figsize=(12, 6))
+        if title is not None:
+            plt.suptitle(f"Dataset: {title}", fontsize=16)
         plt.subplot(1, 2, 1)
         self.data.plot_classification(data="training_data")
         plt.title("Training data")
         plt.subplot(1, 2, 2)
         self.data.plot_classification(data="test_data")
         plt.title("Test data")
+        plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
         plt.show()
 
     def copy(self):
@@ -511,19 +517,32 @@ class MLP():
         print(f"Age: {self.age}")
         print(f"Train Loss: {round(self.data.evaluate_train(self.predict_train()), self.precision_int)}")
         print(f"Test Loss: {round(self.data.evaluate_test(self.predict_test()), self.precision_int)}")
-        print(f"Accuracy: {self.accuracy:.4g}")
+        print(f"Accuracy: {self.accuracy_score:.4g}")
         print(f"F1 Score: {self.f1_score:.4g}")
+
+        total_predictions = self.data.y_test.shape[0]
+        correct_predictions = np.sum(np.argmax(self.data.y_test, axis=1) == np.argmax(self.predict_test(), axis=1))
+        incorrect_predictions = total_predictions - correct_predictions
+        print(f"Model made {correct_predictions} / {total_predictions} correct predictions on the test set.")
+        print(f"There were {incorrect_predictions} incorrect predictions.")
 
     @property
     def precision_int(self):
         return int(-np.log10(self.target_precision))
 
     @property
-    def accuracy(self):
+    def accuracy_score(self):
         y_pred = self.predict_test()
         y_true = np.argmax(self.data.y_test, axis=1) if self.data.loss_function == "cross_entropy" else self.data.y_test
         y_pred = np.argmax(y_pred, axis=1) if self.data.loss_function == "cross_entropy" else y_pred
         return accuracy_score(y_true, y_pred)
+
+    @property
+    def precision_score(self):
+        y_pred = self.predict_test()
+        y_true = np.argmax(self.data.y_test, axis=1) if self.data.loss_function == "cross_entropy" else self.data.y_test
+        y_pred = np.argmax(y_pred, axis=1) if self.data.loss_function == "cross_entropy" else y_pred
+        return precision_score(y_true, y_pred, average='weighted')
 
     @property
     def f1_score(self):
@@ -531,6 +550,13 @@ class MLP():
         y_true = np.argmax(self.data.y_test, axis=1) if self.data.loss_function == "cross_entropy" else self.data.y_test
         y_pred = np.argmax(y_pred, axis=1) if self.data.loss_function == "cross_entropy" else y_pred
         return f1_score(y_true, y_pred, average='weighted')
+
+    @property
+    def g_mean(self):
+        y_pred = self.predict_test()
+        y_true = np.argmax(self.data.y_test, axis=1) if self.data.loss_function == "cross_entropy" else self.data.y_test
+        y_pred = np.argmax(y_pred, axis=1) if self.data.loss_function == "cross_entropy" else y_pred
+        return np.sqrt(self.accuracy_score * self.f1_score)
 
 
 class ModelSet():
