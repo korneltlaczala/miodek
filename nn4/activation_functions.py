@@ -87,8 +87,8 @@ class Softmax(ActivationFunction):
         return e_x / np.sum(e_x, axis=-1, keepdims=True)
 
     def derivative(self, X):
-        s = self.activate(X)
-        return s * (1 - s)  # This is a simplified version; true Jacobian is more complex.
+        # return s * (1 - s)  # This is a simplified version; true Jacobian is more complex.
+        return np.ones_like(X)
 
 def test(function):
     x = np.linspace(-5, 5, 100)

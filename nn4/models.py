@@ -32,13 +32,16 @@ class DataSet():
         test_set_name = f"{self.name}-test.csv"
 
         self.train_df = self.prep_df(train_set_name)
-        self.test_df = self.prep_df(test_set_name)
-
         self.X_train = self.train_df.iloc[:, :-1].values
         self.y_train = self.train_df.iloc[:, -1].values
 
+        self.test_df = self.prep_df(test_set_name)
         self.X_test = self.test_df.iloc[:, :-1].values
         self.y_test = self.test_df.iloc[:, -1].values
+
+        if self.loss_function == "cross_entropy":
+            self.y_train = self.y_train.astype(int)
+            self.y_test = self.y_test.astype(int)
 
     def scale_data(self):
         self.x_scaler = StandardScaler()
@@ -77,26 +80,26 @@ class DataSet():
         return self._evaluate(self.y_test, y_pred_test)
 
     def _evaluate(self, y_true, y_pred):
-        if self.loss_function != "cross_entropy":
-            y_true_denormalized = self.y_scaler.inverse_transform(y_true)
-            y_pred_denormalized = self.y_scaler.inverse_transform(y_pred)
-        else:
-            y_true_denormalized = y_true
-            y_pred_denormalized = y_pred
+        if self.loss_function == "cross_entropy":
+            epsilon = 1e-15
+            
+            y_true_onehot = np.zeros_like(y_pred)
+            for i in range(y_true.shape[0]):
+                y_true_onehot[i, y_true[i]] = 1
+
+            # print(y_true)
+            # print(y_true_onehot)
+
+            y_pred = np.clip(y_pred, epsilon, 1 - epsilon)
+            # print(y_pred)
+            return -np.mean(np.sum(y_true_onehot * np.log(y_pred), axis=1))
+
+        y_true_denormalized = self.y_scaler.inverse_transform(y_true)
+        y_pred_denormalized = self.y_scaler.inverse_transform(y_pred)
         if self.loss_function == "mse":
             return np.mean((y_true_denormalized - y_pred_denormalized) ** 2)
         if self.loss_function == "mae":
             return np.mean(np.abs(y_true_denormalized - y_pred_denormalized))
-        if self.loss_function == "cross_entropy":
-            
-            epsilon = 1e-15
-            # binary cross entropy
-            if y_true_denormalized.ndim == 1 or y_true_denormalized.shape[1] == 1:
-                y_pred_denormalized = np.clip(y_pred_denormalized, epsilon, 1 - epsilon)
-                return -np.mean(y_true_denormalized * np.log(y_pred_denormalized) + (1 - y_true_denormalized) * np.log(1 - y_pred_denormalized))
-            else:
-                print("Multi-class cross-entropy not implemented")
-                return None
 
     def plot_true(self):
         X_train = self.x_scaler.inverse_transform(self.X_train)[:, 0]
@@ -224,6 +227,8 @@ class FirstLayer(Layer):
 
 class LastLayer(Layer):
     def backward(self, y_true):
+        print(self.a)
+        print(y_true)
         errors = self.a - y_true
         self.e = errors * self.activation_func.derivative(self.z)
 
