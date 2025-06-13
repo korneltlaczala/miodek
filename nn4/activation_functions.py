@@ -78,6 +78,18 @@ class Linear(ActivationFunction):
     def derivative(self, X):
         return np.ones_like(X)
 
+class Softmax(ActivationFunction):
+    def __init__(self):
+        self.name = "Softmax"
+
+    def activate(self, X):
+        e_x = np.exp(X - np.max(X, axis=-1, keepdims=True))
+        return e_x / np.sum(e_x, axis=-1, keepdims=True)
+
+    def derivative(self, X):
+        s = self.activate(X)
+        return s * (1 - s)  # This is a simplified version; true Jacobian is more complex.
+
 def test(function):
     x = np.linspace(-5, 5, 100)
     plt.figure(figsize=(10, 6))

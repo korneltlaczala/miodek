@@ -20,10 +20,12 @@ class MLPArchitecture():
 
 class DataSet():
 
-    def __init__(self, name):
+    def __init__(self, name, loss_function="mse"):
         self.name = name
+        self.loss_function = loss_function
         self.read_data()
-        self.scale_data()
+        if loss_function != "cross_entropy":
+            self.scale_data()
 
     def read_data(self):
         train_set_name = f"{self.name}-training.csv"
@@ -75,10 +77,26 @@ class DataSet():
         return self._evaluate(self.y_test, y_pred_test)
 
     def _evaluate(self, y_true, y_pred):
-        y_true_denormalized = self.y_scaler.inverse_transform(y_true)
-        y_pred_denormalized = self.y_scaler.inverse_transform(y_pred)
-        mse = np.mean((y_true_denormalized - y_pred_denormalized) ** 2)
-        return mse
+        if self.loss_function != "cross_entropy":
+            y_true_denormalized = self.y_scaler.inverse_transform(y_true)
+            y_pred_denormalized = self.y_scaler.inverse_transform(y_pred)
+        else:
+            y_true_denormalized = y_true
+            y_pred_denormalized = y_pred
+        if self.loss_function == "mse":
+            return np.mean((y_true_denormalized - y_pred_denormalized) ** 2)
+        if self.loss_function == "mae":
+            return np.mean(np.abs(y_true_denormalized - y_pred_denormalized))
+        if self.loss_function == "cross_entropy":
+            
+            epsilon = 1e-15
+            # binary cross entropy
+            if y_true_denormalized.ndim == 1 or y_true_denormalized.shape[1] == 1:
+                y_pred_denormalized = np.clip(y_pred_denormalized, epsilon, 1 - epsilon)
+                return -np.mean(y_true_denormalized * np.log(y_pred_denormalized) + (1 - y_true_denormalized) * np.log(1 - y_pred_denormalized))
+            else:
+                print("Multi-class cross-entropy not implemented")
+                return None
 
     def plot_true(self):
         X_train = self.x_scaler.inverse_transform(self.X_train)[:, 0]
@@ -212,27 +230,29 @@ class LastLayer(Layer):
 
 class MLP():
 
-    def __init__(self, architecture, dataset_name, initializer=None, activation_func=None, name="model"):
+    def __init__(self, architecture, dataset_name, initializer=None, activation_func=None, last_layer_activation_func=None, name="model", loss_function="mse"):
         self.architecture = architecture
-        self.data = DataSet(dataset_name)
+        self.data = DataSet(dataset_name, loss_function)
         self.age = 0
         self.epochs_lost = 0
         self.name = name
 
         self.initializer = initializer
         self.history = ModelHistory(self)
-        self.set_activation_func(activation_func)
+        self.set_activation_func(activation_func, last_layer_activation_func)
         self.generate_layers()
         self.initialize()
 
     def print_shit(self):
         print("shit")
 
-    def set_activation_func(self, activation_func):
+    def set_activation_func(self, activation_func, last_layer_activation_func):
         if activation_func is None:
             activation_func = Sigmoid()
+        if last_layer_activation_func is None:
+            last_layer_activation_func = Linear()
         self.activation_func = activation_func
-        self.last_layer_activation_func = Linear()
+        self.last_layer_activation_func = last_layer_activation_func
 
     def initialize(self):
         if self.initializer is None:
@@ -325,12 +345,14 @@ class MLP():
         start_age = self.age
         for epoch in iterator:
             self.age += 1
-            best_test_mse = round(self.history.best_test_mse, 2)
-            test_mse = round(self.data.evaluate_test(self.predict_test()), 2)
-            # if best_test_mse == test_mse:
-            #     print(f"new best model at age {self.age-1} with {test_mse} MSE on test set")
+            # best_loss_test = round(self.history.best_loss_test, 2)
+            # loss_test = round(self.data.evaluate_test(self.predict_test()), 2)
+            best_loss_test = self.history.best_loss_test
+            loss_test = self.data.evaluate_test(self.predict_test())
+            # if best_loss_test == loss_test:
+            #     print(f"new best model at age {self.age-1} with {loss_test} MSE on test set")
             iterator.set_description(
-                f"{str(f'Training from age {start_age}: (best_test_mse: {best_test_mse}, test_mse: {test_mse})'):<61}"
+                f"{str(f'Training from age {start_age}: (best_loss_test: {best_loss_test}, loss_test: {loss_test})'):<61}"
             )
             if not batch:
                 X = self.data.X_train
@@ -347,13 +369,13 @@ class MLP():
             #     self.evaluate()
         if save_till_best:
             self.revert_to_best()
-        mse_test = self.data.evaluate_test(self.predict_test())
-        print(f"Model training finished at age {self.age} with {mse_test} MSE on test set")
+        test_loss = self.data.evaluate_test(self.predict_test())
+        print(f"Model training finished at age {self.age} with loss {test_loss} on test set")
 
     def revert_to_best(self):
         print("-" * 20)
         print(f"Reverting to best model at age {self.history.best_age}")
-        # print(f"Best model MSE: {round(self.history.best_test_mse, 2)}")
+        # print(f"Best model loss: {round(self.history.best_loss_test, 2)}")
         self.epochs_lost += self.age - self.history.best_age
         self.age = self.history.best_age
         self.set_weights(self.history.best_weights)
@@ -364,10 +386,10 @@ class MLP():
     def evaluate(self, evaluate_on_test=True):
         y_pred_train = self.predict_train()
         y_pred_test = self.predict_test()
-        mse_train = self.data.evaluate_train(y_pred_train)
-        mse_test = self.data.evaluate_test(y_pred_test)
-        print(f"MSE on train set: {round(mse_train, 2)}", end="\t")
-        print(f"MSE on test set: {round(mse_test, 2)}")
+        train_loss = self.data.evaluate_train(y_pred_train)
+        test_loss = self.data.evaluate_test(y_pred_test)
+        print(f"Loss on train set: {round(train_loss, 2)}", end="\t")
+        print(f"Loss on test set: {round(test_loss, 2)}")
 
     def plot(self):
         X = self.data.get_linspace()
