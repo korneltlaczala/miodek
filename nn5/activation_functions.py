@@ -90,9 +90,20 @@ class Softmax(ActivationFunction):
         # return s * (1 - s)  # This is a simplified version; true Jacobian is more complex.
         return np.ones_like(X)
 
-def test(function):
+class Tanh(ActivationFunction):
+    def __init__(self):
+        self.name = "Tanh"
+
+    def activate(self, X):
+        return np.tanh(X)
+
+    def derivative(self, X):
+        return 1 - np.tanh(X) ** 2
+
+def test(function, final=True):
     x = np.linspace(-5, 5, 100)
-    plt.figure(figsize=(10, 6))
+    if final:
+        plt.figure(figsize=(10, 6))
     plt.plot(x, function.activate(x), label="Activation", color="blue", linestyle="-")
     plt.plot(x, function.derivative(x), label="Derivative", color="orange", linestyle="--")
     plt.legend()
@@ -100,9 +111,9 @@ def test(function):
     plt.xlabel("x")
     plt.ylabel("f(x)")
     plt.title(f"{function.name} Activation Function")
-    plt.show()
+    return plt
 
 
 if __name__ == "__main__":
-    test(ReLU())
+    test(Sigmoid())
 
