@@ -31,13 +31,15 @@ class ModelHistory():
         #     self.weight_data.append(self.model.get_weights())
         #     self.bias_data.append(self.model.get_biases())
 
-    def plot(self, start_age, end_age):
-        smoothing_interval = 30
+    def plot(self, start_age, end_age, smoothing_interval=30, scale="linear"):
         epochs = np.arange(start_age, end_age, smoothing_interval)
+        plt.figure(figsize=(12, 5))
         plt.title(f"{self.model.name} - Epochs: {start_age} - {end_age}")
-        plt.plot(epochs, self.loss_train[start_age:end_age:smoothing_interval], color="blue")
-        plt.plot(epochs, self.loss_test[start_age:end_age:smoothing_interval], color="red")
+        plt.plot(epochs, self.loss_train[start_age:end_age:smoothing_interval], color="red", linewidth=1)
+        plt.plot(epochs, self.loss_test[start_age:end_age:smoothing_interval], color="blue", linewidth=1)
+        plt.yscale(scale)
+        plt.grid(True)
         plt.xlabel("Epoch")
-        plt.ylabel("Loss")
+        plt.ylabel(f"Loss ({self.model.data.loss_function})")
         plt.legend(["Train", "Test"])
         

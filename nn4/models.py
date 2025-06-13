@@ -1,10 +1,10 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import accuracy_score, f1_score
 from activation_functions import *
 from history import ModelHistory
 from initializers import *
-import run
 import copy
 from tqdm import tqdm, trange
 
@@ -24,8 +24,7 @@ class DataSet():
         self.name = name
         self.loss_function = loss_function
         self.read_data()
-        if loss_function != "cross_entropy":
-            self.scale_data()
+        self.scale_data()
 
     def read_data(self):
         train_set_name = f"{self.name}-training.csv"
@@ -43,7 +42,28 @@ class DataSet():
             self.y_train = self.y_train.astype(int)
             self.y_test = self.y_test.astype(int)
 
+            self.n_classes = len(set(self.y_train) | set(self.y_test))
+
+            y_train_onehot = np.zeros((self.y_train.shape[0], self.n_classes))
+            for i in range(self.y_train.shape[0]):
+                y_train_onehot[i, self.y_train[i]] = 1
+
+            y_test_onehot = np.zeros((self.y_test.shape[0], self.n_classes))
+            for i in range(self.y_test.shape[0]):
+                y_test_onehot[i, self.y_test[i]] = 1
+            
+            self.y_train = y_train_onehot
+            self.y_test = y_test_onehot
+
     def scale_data(self):
+        if self.loss_function == "cross_entropy":
+            class DummyScaler:
+                def fit_transform(self, x): return x
+                def transform(self, x): return x
+                def inverse_transform(self, x): return x
+            self.x_scaler = DummyScaler()
+            self.y_scaler = DummyScaler()
+            return
         self.x_scaler = StandardScaler()
         self.X_train = self.x_scaler.fit_transform(self.X_train)
         self.X_test = self.x_scaler.transform(self.X_test)
@@ -82,17 +102,11 @@ class DataSet():
     def _evaluate(self, y_true, y_pred):
         if self.loss_function == "cross_entropy":
             epsilon = 1e-15
-            
-            y_true_onehot = np.zeros_like(y_pred)
-            for i in range(y_true.shape[0]):
-                y_true_onehot[i, y_true[i]] = 1
+            y_pred = np.clip(y_pred, epsilon, 1 - epsilon)
 
             # print(y_true)
-            # print(y_true_onehot)
-
-            y_pred = np.clip(y_pred, epsilon, 1 - epsilon)
             # print(y_pred)
-            return -np.mean(np.sum(y_true_onehot * np.log(y_pred), axis=1))
+            return -np.mean(np.sum(y_true * np.log(y_pred), axis=1))
 
         y_true_denormalized = self.y_scaler.inverse_transform(y_true)
         y_pred_denormalized = self.y_scaler.inverse_transform(y_pred)
@@ -108,6 +122,46 @@ class DataSet():
         y_test = self.y_scaler.inverse_transform(self.y_test)
         plt.scatter(X_train, y_train, color="blue")
         plt.scatter(X_test, y_test, color="red")
+
+    def plot_classification(self, data="test_data"):
+        if data == "training_data":
+            X = self.X_train
+            y = self.y_train
+        elif data == "test_data":
+            X = self.X_test
+            y = self.y_test
+        else:
+            raise ValueError("data must be 'training_data' or 'test_data'")
+
+        y = np.argmax(y, axis=1) if self.loss_function == "cross_entropy" else y
+        classes = np.unique(y)
+        for cls in classes:
+            idx = y == cls
+            plt.scatter(
+                X[idx, 0],
+                X[idx, 1],
+                c=[plt.cm.viridis(cls / (len(classes)-1))],
+                label=f"Class {cls}",
+                s=20
+            )
+        return plt
+
+    def plot_predicted_classification(self, y_pred, mark_incorrect=True):
+        y_pred = np.argmax(y_pred, axis=1) if self.loss_function == "cross_entropy" else y_pred
+        classes = np.unique(y_pred)
+        for cls in classes:
+            idx = y_pred == cls
+            plt.scatter(
+                self.X_test[idx, 0],
+                self.X_test[idx, 1],
+                c=[plt.cm.viridis(cls / (len(classes)-1))],
+                label=f"Class {cls}",
+                s=20
+            )
+        if mark_incorrect:
+            incorrect = y_pred != np.argmax(self.y_test, axis=1)
+            plt.scatter(self.X_test[incorrect, 0], self.X_test[incorrect, 1], facecolors='none', edgecolors='red', s=5, label='Incorrect')
+        return plt
 
     def plot(self, X, y_pred):
         self.plot_true()
@@ -227,26 +281,38 @@ class FirstLayer(Layer):
 
 class LastLayer(Layer):
     def backward(self, y_true):
-        print(self.a)
-        print(y_true)
+        # print(self.a)
+        # print(y_true)
         errors = self.a - y_true
         self.e = errors * self.activation_func.derivative(self.z)
 
 
 class MLP():
 
-    def __init__(self, architecture, dataset_name, initializer=None, activation_func=None, last_layer_activation_func=None, name="model", loss_function="mse"):
+    def __init__(
+            self,
+            architecture,
+            dataset_name,
+            loss_function="mse",
+            initializer=None,
+            activation_func=None,
+            last_layer_activation_func=None,
+            target_precision=1e-2,
+            name="model",
+    ):
         self.architecture = architecture
         self.data = DataSet(dataset_name, loss_function)
-        self.age = 0
-        self.epochs_lost = 0
-        self.name = name
 
         self.initializer = initializer
         self.history = ModelHistory(self)
         self.set_activation_func(activation_func, last_layer_activation_func)
         self.generate_layers()
         self.initialize()
+
+        self.target_precision = target_precision
+        self.age = 0
+        self.epochs_lost = 0
+        self.name = name
 
     def print_shit(self):
         print("shit")
@@ -350,10 +416,8 @@ class MLP():
         start_age = self.age
         for epoch in iterator:
             self.age += 1
-            # best_loss_test = round(self.history.best_loss_test, 2)
-            # loss_test = round(self.data.evaluate_test(self.predict_test()), 2)
-            best_loss_test = self.history.best_loss_test
-            loss_test = self.data.evaluate_test(self.predict_test())
+            best_loss_test = round(self.history.best_loss_test, self.precision_int)
+            loss_test = round(self.data.evaluate_test(self.predict_test()), self.precision_int)
             # if best_loss_test == loss_test:
             #     print(f"new best model at age {self.age-1} with {loss_test} MSE on test set")
             iterator.set_description(
@@ -367,20 +431,17 @@ class MLP():
                 Xs, ys = self.data.get_batches(batch_size)
                 for X, y in zip(Xs, ys):
                     self.backprop(X, y, learning_rate, optimizer, momentum_lambda, rms_beta)
-
             self.history.log()
-            # if verbose and (epoch + 1) % report_interval == 0:
-            #     print(f"Model age: {self.age}", end="\t")
-            #     self.evaluate()
+
         if save_till_best:
             self.revert_to_best()
-        test_loss = self.data.evaluate_test(self.predict_test())
+
+        test_loss = round(self.data.evaluate_test(self.predict_test()), self.precision_int)
         print(f"Model training finished at age {self.age} with loss {test_loss} on test set")
 
     def revert_to_best(self):
         print("-" * 20)
         print(f"Reverting to best model at age {self.history.best_age}")
-        # print(f"Best model loss: {round(self.history.best_loss_test, 2)}")
         self.epochs_lost += self.age - self.history.best_age
         self.age = self.history.best_age
         self.set_weights(self.history.best_weights)
@@ -393,8 +454,8 @@ class MLP():
         y_pred_test = self.predict_test()
         train_loss = self.data.evaluate_train(y_pred_train)
         test_loss = self.data.evaluate_test(y_pred_test)
-        print(f"Loss on train set: {round(train_loss, 2)}", end="\t")
-        print(f"Loss on test set: {round(test_loss, 2)}")
+        print(f"Loss on train set: {round(train_loss, self.precision_int)}", end="\t")
+        print(f"Loss on test set: {round(test_loss, self.precision_int)}")
 
     def plot(self):
         X = self.data.get_linspace()
@@ -402,14 +463,74 @@ class MLP():
         self.data.plot(X, y_pred)
         plt.show()
 
-    def plot_history(self, start_age = 0, end_age = None):
+    def plot_history(self, start_age=0, end_age=None, smoothing_interval=30, scale="linear"):
         if end_age is None:
             end_age = self.age
-        self.history.plot(start_age, end_age)
+        self.history.plot(start_age, end_age, smoothing_interval=smoothing_interval, scale=scale)
+        plt.show()
+
+    def plot_classification(self):
+        self.data.plot_classification()
+
+    def plot_predicted_classification(self, y_pred=None):
+        if y_pred is None:
+            y_pred = self.predict_test()
+        self.data.plot_predicted_classification(y_pred)
+        plt.show()
+
+    def plot_classification_comparison(self, y_pred=None):
+        if y_pred is None:
+            y_pred = self.predict_test()
+        plt.figure(figsize=(12, 6))
+        plt.subplot(1, 2, 1)
+        self.data.plot_classification()
+        plt.title("True Classification")
+        plt.subplot(1, 2, 2)
+        self.data.plot_predicted_classification(y_pred)
+        plt.title("Predicted Classification")
+        plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+        plt.show()
+
+        self.classification_performance_summary()
+
+    def plot_classification_data(self):
+        plt.figure(figsize=(12, 6))
+        plt.subplot(1, 2, 1)
+        self.data.plot_classification(data="training_data")
+        plt.title("Training data")
+        plt.subplot(1, 2, 2)
+        self.data.plot_classification(data="test_data")
+        plt.title("Test data")
         plt.show()
 
     def copy(self):
         return copy.deepcopy(self)
+
+    def classification_performance_summary(self):
+        print(f"Model: {self.name}")
+        print(f"Age: {self.age}")
+        print(f"Train Loss: {round(self.data.evaluate_train(self.predict_train()), self.precision_int)}")
+        print(f"Test Loss: {round(self.data.evaluate_test(self.predict_test()), self.precision_int)}")
+        print(f"Accuracy: {self.accuracy:.4g}")
+        print(f"F1 Score: {self.f1_score:.4g}")
+
+    @property
+    def precision_int(self):
+        return int(-np.log10(self.target_precision))
+
+    @property
+    def accuracy(self):
+        y_pred = self.predict_test()
+        y_true = np.argmax(self.data.y_test, axis=1) if self.data.loss_function == "cross_entropy" else self.data.y_test
+        y_pred = np.argmax(y_pred, axis=1) if self.data.loss_function == "cross_entropy" else y_pred
+        return accuracy_score(y_true, y_pred)
+
+    @property
+    def f1_score(self):
+        y_pred = self.predict_test()
+        y_true = np.argmax(self.data.y_test, axis=1) if self.data.loss_function == "cross_entropy" else self.data.y_test
+        y_pred = np.argmax(y_pred, axis=1) if self.data.loss_function == "cross_entropy" else y_pred
+        return f1_score(y_true, y_pred, average='weighted')
 
 
 class ModelSet():
@@ -424,6 +545,5 @@ class ModelSet():
     def plot(self):
         pass
 
-
 if __name__ == "__main__":
-    run.main()
+    pass
