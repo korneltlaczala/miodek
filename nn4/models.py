@@ -1,4 +1,3 @@
-from matplotlib.pylab import copy
 import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import StandardScaler
@@ -6,6 +5,8 @@ from activation_functions import *
 from history import ModelHistory
 from initializers import *
 import run
+import copy
+from tqdm import tqdm, trange
 
 class MLPArchitecture():
 
@@ -215,6 +216,7 @@ class MLP():
         self.architecture = architecture
         self.data = DataSet(dataset_name)
         self.age = 0
+        self.epochs_lost = 0
         self.name = name
 
         self.initializer = initializer
@@ -257,22 +259,22 @@ class MLP():
     def get_weights(self):
         weights = []
         for layer in self.layers:
-            weights.append(layer.weights)
+            weights.append(copy.deepcopy(layer.weights))
         return weights
 
     def get_biases(self):
         biases = []
         for layer in self.layers:
-            biases.append(layer.biases)
+            biases.append(copy.deepcopy(layer.biases))
         return biases
 
     def set_weights(self, weights):
         for i in range(len(weights)):
-            self.layers[i].weights = weights[i]
+            self.layers[i].weights = copy.deepcopy(weights[i])
 
     def set_biases(self, biases):
         for i in range(len(biases)):
-            self.layers[i].biases = biases[i]
+            self.layers[i].biases = copy.deepcopy(biases[i])
 
     def _forward(self, X, save):
         for layer in self.layers:
@@ -312,9 +314,24 @@ class MLP():
                 layer.update_rmsprop(prev_layer, learning_rate, rms_beta)
             prev_layer = layer
 
-    def train(self, epochs, learning_rate, batch=False, batch_size=None, verbose=True, report_interval=100, momentum_lambda=0, rms_beta=None, optimizer="momentum", save_till_best=False):
-        for epoch in range(epochs):
+    def train(self, epochs, learning_rate, batch=False, batch_size=None, verbose=True, momentum_lambda=0, rms_beta=None, optimizer="momentum", save_till_best=False):
+
+
+        iterator = (
+            trange(epochs) if verbose else
+            range(epochs)
+        )
+
+        start_age = self.age
+        for epoch in iterator:
             self.age += 1
+            best_test_mse = round(self.history.best_test_mse, 2)
+            test_mse = round(self.data.evaluate_test(self.predict_test()), 2)
+            # if best_test_mse == test_mse:
+            #     print(f"new best model at age {self.age-1} with {test_mse} MSE on test set")
+            iterator.set_description(
+                f"{str(f'Training from age {start_age}: (best_test_mse: {best_test_mse}, test_mse: {test_mse})'):<61}"
+            )
             if not batch:
                 X = self.data.X_train
                 y_true = self.data.y_train
@@ -325,21 +342,24 @@ class MLP():
                     self.backprop(X, y, learning_rate, optimizer, momentum_lambda, rms_beta)
 
             self.history.log()
-            if verbose and (epoch + 1) % report_interval == 0:
-                print(f"Model age: {self.age}", end="\t")
-                self.evaluate()
-
+            # if verbose and (epoch + 1) % report_interval == 0:
+            #     print(f"Model age: {self.age}", end="\t")
+            #     self.evaluate()
         if save_till_best:
             self.revert_to_best()
+        mse_test = self.data.evaluate_test(self.predict_test())
+        print(f"Model training finished at age {self.age} with {mse_test} MSE on test set")
 
     def revert_to_best(self):
         print("-" * 20)
         print(f"Reverting to best model at age {self.history.best_age}")
-        print(f"Best model MSE: {round(self.history.best_test_mse, 2)}")
-        print("-" * 20)
+        # print(f"Best model MSE: {round(self.history.best_test_mse, 2)}")
+        self.epochs_lost += self.age - self.history.best_age
         self.age = self.history.best_age
         self.set_weights(self.history.best_weights)
         self.set_biases(self.history.best_biases)
+        self.evaluate()
+        print("-" * 20)
 
     def evaluate(self, evaluate_on_test=True):
         y_pred_train = self.predict_train()

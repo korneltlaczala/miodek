@@ -27,9 +27,9 @@ class ModelHistory():
 
         self.train_mse.append(train_mse)
         self.test_mse.append(test_mse)
-        if self.model.age % self.save_interval == 0:
-            self.weight_data.append(self.model.get_weights())
-            self.bias_data.append(self.model.get_biases())
+        # if self.model.age % self.save_interval == 0:
+        #     self.weight_data.append(self.model.get_weights())
+        #     self.bias_data.append(self.model.get_biases())
 
     def plot(self, start_age, end_age):
         smoothing_interval = 30
