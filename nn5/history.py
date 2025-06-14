@@ -58,11 +58,13 @@ class ModelHistory():
             A matplotlib plot showing the training and test loss curves for the specified epoch range.
         """
         epochs = np.arange(start_age, end_age, smoothing_interval)
+        if epochs[-1] != end_age - 1:
+            epochs = np.append(epochs, end_age - 1)
         if final:
             plt.figure(figsize=(12, 5))
         plt.title(f"{self.model.name} - Epochs: {start_age} - {end_age}")
-        plt.plot(epochs, self.loss_train[start_age:end_age:smoothing_interval], color="red", linewidth=1)
-        plt.plot(epochs, self.loss_test[start_age:end_age:smoothing_interval], color="blue", linewidth=1)
+        plt.plot(epochs, [self.loss_train[i] for i in epochs], color="red", linewidth=1)
+        plt.plot(epochs, [self.loss_test[i] for i in epochs], color="blue", linewidth=1)
         plt.yscale(scale)
         plt.grid(True)
         plt.xlabel("Epoch")

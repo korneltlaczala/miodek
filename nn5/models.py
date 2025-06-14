@@ -95,14 +95,16 @@ class DataSet():
         ys = np.array_split(self.y_train[indices], n // batch_size)
         return Xs, ys
 
-    def evaluate_train(self, y_pred_train):
-        return self._evaluate(self.y_train, y_pred_train)
+    def evaluate_train(self, y_pred_train, loss_function=None):
+        return self._evaluate(self.y_train, y_pred_train, loss_function)
 
-    def evaluate_test(self, y_pred_test):
-        return self._evaluate(self.y_test, y_pred_test)
+    def evaluate_test(self, y_pred_test, loss_function=None):
+        return self._evaluate(self.y_test, y_pred_test, loss_function)
 
-    def _evaluate(self, y_true, y_pred):
-        if self.loss_function == "cross_entropy":
+    def _evaluate(self, y_true, y_pred, loss_function=None):
+        if loss_function is None:
+            loss_function = self.loss_function
+        if loss_function == "cross_entropy":
             epsilon = 1e-15
             y_pred = np.clip(y_pred, epsilon, 1 - epsilon)
 
@@ -112,9 +114,9 @@ class DataSet():
 
         y_true_denormalized = self.y_scaler.inverse_transform(y_true)
         y_pred_denormalized = self.y_scaler.inverse_transform(y_pred)
-        if self.loss_function == "mse":
+        if loss_function == "mse":
             return np.mean((y_true_denormalized - y_pred_denormalized) ** 2)
-        if self.loss_function == "mae":
+        if loss_function == "mae":
             return np.mean(np.abs(y_true_denormalized - y_pred_denormalized))
 
     def plot_true(self):
@@ -476,6 +478,9 @@ class MLP():
         plt.show()
 
     def plot_fit_and_history(self, start_age=0, end_age=None, smoothing_interval=1, scale="log"):
+
+        self.regression_performance_summary()
+
         fig, axs = plt.subplots(1, 2, figsize=(22, 6), gridspec_kw={'width_ratios': [2, 3]})
         plt.suptitle(f"Model: {self.name} (Age: {self.age})", fontsize=16)
 
@@ -551,6 +556,14 @@ class MLP():
         incorrect_predictions = total_predictions - correct_predictions
         print(f"Model made {correct_predictions} / {total_predictions} correct predictions on the test set.")
         print(f"There were {incorrect_predictions} incorrect predictions.")
+
+    def regression_performance_summary(self):
+        print(f"Model: {self.name}")
+        print(f"Age: {self.age}")
+        print(f"Train Loss: {round(self.data.evaluate_train(self.predict_train()), self.precision_int)}")
+        print(f"Test Loss: {round(self.data.evaluate_test(self.predict_test()), self.precision_int)}")
+        print(f"Mean Squared Error (MSE): {self.data.evaluate_test(self.predict_test()):.4g}")
+        print(f"Mean Absolute Error (MAE): {self.data.evaluate_test(self.predict_test(), loss_function='mae'):.4g}")
 
     @property
     def precision_int(self):
