@@ -117,17 +117,13 @@ class DataSet():
         if self.loss_function == "mae":
             return np.mean(np.abs(y_true_denormalized - y_pred_denormalized))
 
-    def plot_true(self, ax=None):
+    def plot_true(self):
         X_train = self.x_scaler.inverse_transform(self.X_train)[:, 0]
         X_test = self.x_scaler.inverse_transform(self.X_test)[:, 0]
         y_train = self.y_scaler.inverse_transform(self.y_train)
         y_test = self.y_scaler.inverse_transform(self.y_test)
-        if ax is not None:
-            ax.scatter(X_train, y_train, color="blue")
-            ax.scatter(X_test, y_test, color="red")
-        else:
-            plt.scatter(X_train, y_train, color="blue")
-            plt.scatter(X_test, y_test, color="red")
+        plt.scatter(X_train, y_train, color="blue")
+        plt.scatter(X_test, y_test, color="red")
 
     def plot_classification(self, data="test_data"):
         if data == "training_data":
@@ -169,16 +165,13 @@ class DataSet():
             plt.scatter(self.X_test[incorrect, 0], self.X_test[incorrect, 1], facecolors='none', edgecolors='red', s=5, label='Incorrect')
         return plt
 
-    def plot(self, X, y_pred, ax=None):
-        self.plot_true(ax=ax)
+    def plot(self, X, y_pred):
+        self.plot_true()
         X = self.x_scaler.inverse_transform(X)
         y_pred = self.y_scaler.inverse_transform(y_pred)
-        if ax is not None:
-            ax.plot(X, y_pred, color="green")
-            ax.legend(["Training data", "Test data", "Predicted"])
-        else:
-            plt.plot(X, y_pred, color="green")
-            plt.legend(["Training data", "Test data", "Predicted"])
+        plt.plot(X, y_pred, color="green")
+        plt.legend(["Training data", "Test data", "Predicted"])
+        return plt
 
     def get_range(self):
         min = np.min(np.concatenate((self.X_train[:, 0], self.X_test[:, 0])))
@@ -456,6 +449,7 @@ class MLP():
         print(f"Reverting to best model at age {self.history.best_age}")
         self.epochs_lost += self.age - self.history.best_age
         self.age = self.history.best_age
+        self.history.cutoff_till_best()
         self.set_weights(self.history.best_weights)
         self.set_biases(self.history.best_biases)
         self.evaluate()
@@ -483,13 +477,15 @@ class MLP():
 
     def plot_fit_and_history(self, start_age=0, end_age=None, smoothing_interval=1, scale="log"):
         fig, axs = plt.subplots(1, 2, figsize=(22, 6), gridspec_kw={'width_ratios': [2, 3]})
-        fig.suptitle(f"Model: {self.name} (Age: {self.age})", fontsize=16)
+        plt.suptitle(f"Model: {self.name} (Age: {self.age})", fontsize=16)
 
+        plt.sca(axs[0])
         X = self.data.get_linspace()
         y_pred = self.predict(X=X)
-        self.data.plot(X, y_pred, ax=axs[0])
+        self.data.plot(X, y_pred)
         axs[0].set_title("Model Fit")
 
+        plt.sca(axs[1])
         if end_age is None:
             end_age = self.age
         self.history.plot(
@@ -497,10 +493,10 @@ class MLP():
             end_age=end_age,
             smoothing_interval=smoothing_interval,
             scale=scale,
-            ax=axs[1] if 'ax' in self.history.plot.__code__.co_varnames else None
-        )
+            final=False)
         axs[1].set_title("Training History")
 
+        plt.tight_layout(rect=[0, 0.03, 1, 0.95])
         plt.show()
 
     def plot_classification(self):
