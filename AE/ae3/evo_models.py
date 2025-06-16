@@ -11,14 +11,42 @@ class EvoMLP(MLP):
 
     def crossover(self, other):
         child = copy.deepcopy(self)
-        print("Performing crossover between models...")
-        # Implement crossover logic here
+        # print("Performing crossover...")
+        layer = random.choice(child.layers)
+        influenced_neuron = random.randrange(0, layer.neurons_out)
+        # print(f"self: {self}")
+        # print(f"other: {other}")
+        # print(layer)
+        # print(layer.weights.shape)
+        # print(f"Influenced neuron: {influenced_neuron}")
+        weight_sample = other.get_weight_sample(layer.index, influenced_neuron)
+        # print(weight_sample)
+        # print(layer.weights[:, influenced_neuron])
+        child.set_weight_sample(layer.index, influenced_neuron, weight_sample)
+        # print(("-----------------------------------"))
+        # print(layer.weights[:, influenced_neuron])
         return child
 
     def mutate(self):
         # Implement mutation logic here
         pass
 
+    def get_weight_sample(self, layer_index, neuron_index):
+        if layer_index < 0 or layer_index >= len(self.layers):
+            raise IndexError("Layer index out of bounds.")
+        layer = self.layers[layer_index]
+        if neuron_index < 0 or neuron_index >= layer.neurons_out:
+            raise IndexError("Neuron index out of bounds.")
+        return layer.weights[:, neuron_index]
+
+    def set_weight_sample(self, layer_index, neuron_index, weight_sample):
+        if layer_index < 0 or layer_index >= len(self.layers):
+            raise IndexError("Layer index out of bounds.")
+        layer = self.layers[layer_index]
+        if neuron_index < 0 or neuron_index >= layer.neurons_out:
+            raise IndexError("Neuron index out of bounds.")
+        layer.weights[:, neuron_index] = copy.deepcopy(weight_sample)
+    
 class ModelPopulation():
     def __init__(
             self,
@@ -32,7 +60,7 @@ class ModelPopulation():
             target_precision=1e-2,
 
             model_class=EvoMLP,
-            population_size=10,
+            population_size=100,
             population_name="model_population",
             ):
 
@@ -83,6 +111,7 @@ class ModelPopulation():
 
             parent_pairs = self.select_parent_pairs()
             children = self.crossover(parent_pairs)
+            print(children)
             self.mutate(children)
             candidates = self.models + children
             self.models = self.natural_selection(candidates)
