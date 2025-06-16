@@ -527,6 +527,11 @@ class MLP():
         test_loss = self.data.evaluate_test(y_pred_test)
         return test_loss
 
+    def train_loss(self):
+        y_pred_train = self.predict_train()
+        train_loss = self.data.evaluate_train(y_pred_train)
+        return train_loss
+
     def plot(self):
         X = self.data.get_linspace()
         y_pred = self.predict(X = X)

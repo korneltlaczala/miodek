@@ -18,7 +18,27 @@ class EvoMLP(MLP):
         layer.biases[influenced_neuron] = other.layers[layer.index].biases[influenced_neuron]
         return child
 
-    def mutate(self, mutation_strength=0.001):
+    def crossover_layer_swap(self, other):
+        child = copy.deepcopy(self)
+        layer1 = random.choice(child.layers)
+        layer2 = other.layers[layer1.index]
+        
+        layer1.weights = layer2.weights.copy()
+        layer1.biases = layer2.biases.copy()
+        return child
+
+    def crossover_one_weight(self, other):
+        child = copy.deepcopy(self)
+        layer1 = random.choice(child.layers)
+        layer2 = other.layers[layer1.index]
+
+        neuron_in_index = random.randrange(0, layer1.neurons_in)
+        neuron_out_index = random.randrange(0, layer1.neurons_out)
+        child.layers[layer1.index].weights[neuron_in_index, neuron_out_index] = layer2.weights[neuron_in_index, neuron_out_index]
+        child.layers[layer1.index].biases[neuron_out_index] = layer2.biases[neuron_out_index]
+        return child
+
+    def mutate(self, mutation_strength=0.1):
         layer = random.choice(self.layers)
         neuron_in_index = random.randrange(0, layer.neurons_in)
         neuron_out_index = random.randrange(0, layer.neurons_out)
@@ -89,7 +109,7 @@ class ModelPopulation():
             for _ in range(self.population_size)
         ]
 
-    def train(self, target_value=0, epochs=1000, verbose=True, superverbose=False):
+    def train(self, target_value=0, epochs=1000, mutation_strength=0.1, verbose=True, superverbose=False):
         iterator = (
             trange(
                 epochs,
@@ -110,9 +130,9 @@ class ModelPopulation():
 
             parent_pairs = self.select_parent_pairs()
             children = self.crossover(parent_pairs)
-            self.mutate(children)
-            parent_mutations = self.get_mutations(self.models, multiplier=5)
-            children_mutations = self.get_mutations(children, multiplier=1)
+            self.mutate(children, mutation_strength=mutation_strength)
+            parent_mutations = self.get_mutations(self.models, multiplier=1, mutation_strength=mutation_strength)
+            children_mutations = self.get_mutations(children, multiplier=1, mutation_strength=mutation_strength)
             candidates = self.models + children + parent_mutations + children_mutations
             self.models = self.natural_selection(candidates)
 
@@ -123,7 +143,8 @@ class ModelPopulation():
     def select_parent_pairs(self, num_pairs=None, set_size=3):
         pairs = []
         if num_pairs is None:
-            num_pairs = self.population_size * 10
+            # num_pairs = self.population_size // 2     # Originally children count was the population size
+            num_pairs = self.population_size
         for _ in range(num_pairs):
             parent1 = self.tournament_selection(random.sample(self.models, set_size))
             parent2 = self.tournament_selection(random.sample(self.models, set_size))
@@ -137,23 +158,27 @@ class ModelPopulation():
     def crossover(self, parent_pairs):
         children = []
         for parent1, parent2 in parent_pairs:
-            child1 = parent1.crossover(parent2)
-            child2 = parent2.crossover(parent1)
+            # child1 = parent1.crossover(parent2)
+            # child2 = parent2.crossover(parent1)
+            # child1 = parent1.crossover_layer_swap(parent2)
+            # child2 = parent2.crossover_layer_swap(parent1)
+            child1 = parent1.crossover_one_weight(parent2)
+            child2 = parent2.crossover_one_weight(parent1)
             children.append(child1)
             children.append(child2)
         return children
 
-    def mutate(self, children, mutation_probability=0.1):
+    def mutate(self, children, mutation_probability=0.1, mutation_strength=0.1):
         for child in children:
             if random.random() < mutation_probability:
-                child.mutate()
+                child.mutate(mutation_strength=mutation_strength)
 
-    def get_mutations(self, sample, multiplier=5):
+    def get_mutations(self, sample, multiplier=5, mutation_strength=0.1):
         mutations = []
         for model in sample:
             for i in range(multiplier):
                 mutated_model = copy.deepcopy(model)
-                mutated_model.mutate()
+                mutated_model.mutate(mutation_strength=mutation_strength)
                 mutations.append(mutated_model)
         return mutations
 
@@ -178,13 +203,6 @@ class ModelPopulation():
         # Combine elites and selected
         chosen_candidates = list(elites) + list(chosen_candidates)
         return chosen_candidates
-        chosen_candidates = choice(
-            candidates,
-            size=self.population_size,
-            p=probabilities,
-            replace=False
-        )
-        return chosen_candidates.tolist()
             
     def get_population(self):
         return self.population
@@ -197,6 +215,9 @@ class ModelPopulation():
 
     def plot(self):
         self.best_model.plot()
+
+    def train_loss(self):
+        return self.best_model_train.train_loss()
 
     def test_loss(self):
         return self.best_model.test_loss()
@@ -213,6 +234,14 @@ class ModelPopulation():
         if index < 0 or index >= self.population_size:
             raise IndexError("Index out of bounds for population.")
         return self.models[index].evaluate()
+
+    def classification_performance_summary(self):
+        self.best_model.classification_performance_summary()
+
+    @property
+    def best_model_train(self):
+        best_model = min(self.models, key=lambda model: model.train_loss())
+        return best_model
 
     @property
     def best_model(self):
