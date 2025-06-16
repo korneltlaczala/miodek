@@ -1,0 +1,6 @@
+\contentsline {section}{NN1: Bazowa implementacja}{2}{section*.2}%
+\contentsline {section}{NN2: Propagacja wsteczna}{4}{section*.13}%
+\contentsline {section}{NN3: Implementacja momentu i normalizacji gradientu (RMSProp)}{7}{section*.36}%
+\contentsline {section}{NN4: Klasyfikacja - implementacja z softmax}{10}{section*.57}%
+\contentsline {section}{NN5: Testowanie różnych funkcji aktywacji}{15}{section*.73}%
+\contentsline {section}{NN6: Regularyzacja i przeuczanie}{20}{section*.92}%
