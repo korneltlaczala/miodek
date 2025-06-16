@@ -11,25 +11,20 @@ class EvoMLP(MLP):
 
     def crossover(self, other):
         child = copy.deepcopy(self)
-        # print("Performing crossover...")
         layer = random.choice(child.layers)
         influenced_neuron = random.randrange(0, layer.neurons_out)
-        # print(f"self: {self}")
-        # print(f"other: {other}")
-        # print(layer)
-        # print(layer.weights.shape)
-        # print(f"Influenced neuron: {influenced_neuron}")
         weight_sample = other.get_weight_sample(layer.index, influenced_neuron)
-        # print(weight_sample)
-        # print(layer.weights[:, influenced_neuron])
         child.set_weight_sample(layer.index, influenced_neuron, weight_sample)
-        # print(("-----------------------------------"))
-        # print(layer.weights[:, influenced_neuron])
+        layer.biases[influenced_neuron] = other.layers[layer.index].biases[influenced_neuron]
         return child
 
-    def mutate(self):
-        # Implement mutation logic here
-        pass
+    def mutate(self, mutation_strength=0.001):
+        layer = random.choice(self.layers)
+        neuron_in_index = random.randrange(0, layer.neurons_in)
+        neuron_out_index = random.randrange(0, layer.neurons_out)
+
+        layer.weights[neuron_in_index, neuron_out_index] *= (1 + random.uniform(-mutation_strength, mutation_strength))
+        layer.biases[neuron_out_index] *= (1 + random.uniform(-mutation_strength, mutation_strength))
 
     def get_weight_sample(self, layer_index, neuron_index):
         if layer_index < 0 or layer_index >= len(self.layers):
@@ -46,6 +41,7 @@ class EvoMLP(MLP):
         if neuron_index < 0 or neuron_index >= layer.neurons_out:
             raise IndexError("Neuron index out of bounds.")
         layer.weights[:, neuron_index] = copy.deepcopy(weight_sample)
+
     
 class ModelPopulation():
     def __init__(
@@ -93,12 +89,12 @@ class ModelPopulation():
             for _ in range(self.population_size)
         ]
 
-    def train(self, target_value=0, epochs=1000, verbose=False):
+    def train(self, target_value=0, epochs=1000, verbose=True, superverbose=False):
         iterator = (
             trange(
                 epochs,
-                bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]",
-                colour="lightblue",
+                bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}] {postfix}",
+                colour="green",
                 ncols=60  # Fixed width
             ) if verbose else
             range(epochs)
@@ -109,17 +105,25 @@ class ModelPopulation():
                 print(f"Target value {target_value} reached at epoch {epoch}.")
                 return self.best_model
 
+            if verbose:
+                iterator.set_postfix({"Best Loss": f"{self.test_loss():.4f}"})
+
             parent_pairs = self.select_parent_pairs()
             children = self.crossover(parent_pairs)
-            print(children)
             self.mutate(children)
-            candidates = self.models + children
+            parent_mutations = self.get_mutations(self.models, multiplier=5)
+            children_mutations = self.get_mutations(children, multiplier=1)
+            candidates = self.models + children + parent_mutations + children_mutations
             self.models = self.natural_selection(candidates)
+
+            if superverbose:
+                self.show_test_loss()
+                self.plot()
             
     def select_parent_pairs(self, num_pairs=None, set_size=3):
         pairs = []
         if num_pairs is None:
-            num_pairs = self.population_size // 2
+            num_pairs = self.population_size * 10
         for _ in range(num_pairs):
             parent1 = self.tournament_selection(random.sample(self.models, set_size))
             parent2 = self.tournament_selection(random.sample(self.models, set_size))
@@ -144,14 +148,40 @@ class ModelPopulation():
             if random.random() < mutation_probability:
                 child.mutate()
 
+    def get_mutations(self, sample, multiplier=5):
+        mutations = []
+        for model in sample:
+            for i in range(multiplier):
+                mutated_model = copy.deepcopy(model)
+                mutated_model.mutate()
+                mutations.append(mutated_model)
+        return mutations
+
     def natural_selection(self, candidates):
         min_loss = min(model.test_loss() for model in candidates)
         max_loss = max(model.test_loss() for model in candidates)
         spread = max_loss - min_loss
+        # Elitism: keep the best models directly
+        elite_count = max(1, self.population_size // 10)
+        elites = sorted(candidates, key=lambda m: m.test_loss())[:elite_count]
+        # Select the rest based on a weighted probability
+        non_elites = [m for m in candidates if m not in elites]
+        weights = [max_loss - model.test_loss() + 1e-8 for model in non_elites]  # avoid zero
+        total = sum(weights)
+        probabilities = [w / total for w in weights]
+        chosen_candidates = choice(
+            non_elites,
+            size=self.population_size - elite_count,
+            p=probabilities,
+            replace=False
+        )
+        # Combine elites and selected
+        chosen_candidates = list(elites) + list(chosen_candidates)
+        return chosen_candidates
         chosen_candidates = choice(
             candidates,
             size=self.population_size,
-            p=[(model.test_loss() - min_loss + spread/2) / (spread + 1e-8) for model in candidates],
+            p=probabilities,
             replace=False
         )
         return chosen_candidates.tolist()
