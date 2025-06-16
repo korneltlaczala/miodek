@@ -133,13 +133,13 @@ class Population():
                vector.append(random.uniform(self.interval[0], self.interval[1]))
             self.population.append(vector)
 
-    def evolve(self, generations=10, verbose=True, bar_stay=True, bar_position=0, desc="", parent_density=0.7, mutation_scale=0.1, elitism_rate=0.1):
+    def evolve(self, generations=10, verbose=True, bar_stay=True, bar_position=0, desc="", parent_density=0.7, mutation_scale=0.1, elitism_rate=0.1, visualize_each_step=False):
         iterator = (
             trange(generations, desc=desc, mininterval=0.01, ncols=80, leave=bar_stay, position=bar_position, colour="#63be7b", unit="gen")
             if verbose else range(generations)
         )
         for i in iterator:
-            self.generation_step(parent_density=parent_density, mutation_scale=mutation_scale, elitism_rate=elitism_rate)
+            self.generation_step(parent_density=parent_density, mutation_scale=mutation_scale, elitism_rate=elitism_rate, verbose=visualize_each_step)
 
     def generation_step(self, verbose=False, parent_density=0.7, mutation_scale=0.1, elitism_rate=0.1):
         self.generation += 1

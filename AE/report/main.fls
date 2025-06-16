@@ -254,6 +254,11 @@ INPUT ./img/ae1/mutation_scale.png
 INPUT ./img/ae1/mutation_scale.png
 INPUT ./img/ae1/mutation_scale.png
 INPUT c:/texlive/2024/texmf-dist/fonts/enc/dvips/lm/lm-mathsy.enc
+INPUT ./img/ae1/rastrigin_distribution.png
+INPUT ./img/ae1/rastrigin_distribution.png
+INPUT ./img/ae1/rastrigin_distribution.png
+INPUT ./img/ae1/rastrigin_distribution.png
+INPUT ./img/ae1/rastrigin_distribution.png
 INPUT ./img/ae2/rectangles_example.png
 INPUT ./img/ae2/rectangles_example.png
 INPUT ./img/ae2/rectangles_example.png

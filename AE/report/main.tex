@@ -90,8 +90,16 @@ Jak widać, optymalne wartości gęstości selekcji rodziców są z przedziału 
     \includegraphics[width=0.8\textwidth]{img/ae1/mutation_scale.png}
     \caption{Zbieżność w zależności od skali mutacji}
 \end{figure}
-
 Najlepsze skale mutacji są z przedziału $0.05 - 0.4$.
+
+\subsubsection*{Funkcja Rastrigina}
+Funkcja Rastrigina jest funkcją o wielu minimach lokalnych, co sprawia, że jest trudna do optymalizacji. Na wykresie czerwone kropki oznaczają nową populację, niebieskie starą populację. Na zielono są dzieci starej populacji a na fioletowo ich mutacje. Dopiero teraz widać, dlaczego zbyt mały rozmiar populacji może zapobiec znalezieniu rozwiązania.
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.7\textwidth]{img/ae1/rastrigin_distribution.png}
+    \caption{Wizualizacja działania algorytmu na funkcji Rastrigina}
+\end{figure}
+
 \newpage
 
 \section*{AE2: Wypełnianie koła prostokątami}
