@@ -1,0 +1,42 @@
+Wstęp
+Ta część laboratorium jest zaplanowana do końca semestru. W ramach pierwszych trzech zajęć należy zaimplementować algorytm genetyczny optymalizujący wartość funkcji w przestrzeni Rn.
+
+AE1: Implementacja algorytmu genetycznego (1 tydzień, 2 punkty)
+Napisać podstawowy algorytm genetyczny z mutacją gaussowską i krzyżowaniem jednopunktowym. Sprawdzić działanie algorytmu na funkcji 
+x
+2
++
+y
+2
++
+2
+z
+2
+ oraz na pięciowymiarowej funkcji Rastrigina.
+
+AE2: Wypełnianie koła prostokątami (2 tygodnie, 4 punkty)
+Rozwiązać wariant problemu znanego w literaturze jako cutting stock problem.
+
+Mamy dane koło o promieniu r oraz zbiór dostępnych prostokątów zadanych przez trzy liczby: wysokość, szerokość i wartość.
+
+Celem jest ułożenie prostokątów w kole tak, aby zmaksymalizować sumę ich wartości, spełniając następujące warunki:
+
+boki wszystkich prostokątów były równoległe do osi układu,
+wnętrza prostokątów nie miały części wspólnej (intuicyjnie: prostokąty nie nachodzą na siebie, ale mogą się stykać bokami),
+każdy prostokąt można wstawić dowolnie wiele razy.
+Zaproponować kodowanie problemu, operator mutacji i krzyżowania i zaimplementować algorytm genetyczny rozwiązujący powyższy problem.
+
+Przetestować rozwiązanie na danych dostarczonych w pliku cutting.tar.xz w kursie.
+
+Struktura pliku: w nazwie pliku jest podany promień koła, plik jest w formacie csv: pierwsza kolumna to szerokość prostokąta, druga to wysokość, trzecia to wartość prostokąta.
+
+Minimalny wynik na 4 punkty to przynajmniej wartość sumaryczna prostokątów 30000 w kole o średnicy 800 oraz 30000 w kole o średnicy 1200, minimum 17500 w kole o średnicy 1000 oraz minimum 25000 w kole o średnicy 1100. Zbiór r850 nie wpływa na punktację, ale należy zaprezentować wynik dla niego.
+
+AE3: Optymalizacja wag w sieci MLP z użyciem algorytmu genetycznego (2 pkt w ramach sprawozdania)
+Zaimplementować proste uczenie MLP z użyciem algorytmu genetycznego. Na wejściu jest: struktura sieci neuronowej i dane uczące. Optymalizowana funkcja to funkcja przekształcająca wektor wag sieci na błąd na zbiorze uczącym. Zastosować standardowe operatory krzyżowania i mutacji.
+
+Przeprowadzić uczenie na zbiorach:
+
+iris https://archive.ics.uci.edu/ml/datasets/Iris
+multimodal-large (z części laboratorium o sieciach neuronowych)
+auto-mpg (przewidzieć wartość mpg) - http://archive.ics.uci.edu/ml/datasets/Auto+MPG
