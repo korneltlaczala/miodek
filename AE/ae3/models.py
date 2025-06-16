@@ -125,8 +125,18 @@ class DataSet():
         X_test = self.x_scaler.inverse_transform(self.X_test)[:, 0]
         y_train = self.y_scaler.inverse_transform(self.y_train)
         y_test = self.y_scaler.inverse_transform(self.y_test)
-        plt.scatter(X_train, y_train, color="blue")
-        plt.scatter(X_test, y_test, color="red")
+        plt.scatter(X_train, y_train, color="red")
+        plt.scatter(X_test, y_test, color="blue")
+
+    def plot_test(self):
+        X_test = self.x_scaler.inverse_transform(self.X_test)[:, 0]
+        y_test = self.y_scaler.inverse_transform(self.y_test)
+        plt.scatter(X_test, y_test, color="blue", label="Test data")
+
+    def plot_train(self):
+        X_train = self.x_scaler.inverse_transform(self.X_train)[:, 0]
+        y_train = self.y_scaler.inverse_transform(self.y_train)
+        plt.scatter(X_train, y_train, color="red", label="Training data")
 
     def plot_classification(self, data="test_data"):
         if data == "training_data":
@@ -300,13 +310,14 @@ class MLP():
             self,
             architecture,
             dataset_name,
-            data_dir="data",
+            data_dir="../data",
             loss_function="mse",
             initializer=None,
             activation_func=None,
             last_layer_activation_func=None,
             target_precision=1e-2,
             name="model",
+            *args, **kwargs
     ):
         self.architecture = architecture
         self.data = DataSet(self, dataset_name, data_dir, loss_function)
@@ -510,6 +521,11 @@ class MLP():
         test_loss = self.data.evaluate_test(y_pred_test)
         print(f"Loss on train set: {round(train_loss, self.precision_int)}", end="\t")
         print(f"Loss on test set: {round(test_loss, self.precision_int)}")
+
+    def test_loss(self):
+        y_pred_test = self.predict_test()
+        test_loss = self.data.evaluate_test(y_pred_test)
+        return test_loss
 
     def plot(self):
         X = self.data.get_linspace()
