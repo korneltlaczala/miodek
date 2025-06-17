@@ -4,8 +4,9 @@ import random
 from matplotlib.widgets import Button, Slider
 import numpy as np
 import pandas as pd
-from tqdm import tqdm, trange
-from mpl_toolkits.mplot3d import Axes3D
+from tqdm import tqdm
+from sklearn.metrics import f1_score, accuracy_score, precision_score, recall_score
+from sklearn.model_selection import train_test_split
 
 class MapHistory():
     def __init__(self, map):
@@ -125,6 +126,11 @@ class SelfOrganizingMap:
             self.data_y = data["c"]
         self.data_dim = self.data_X.shape[1]
 
+        self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(
+            self.data_X, self.data_y, test_size=0.2, random_state=42, stratify=self.data_y
+        )
+        print(self.X_train.shape, self.y_train.shape)
+
     def _init_map(self):
         self.ranges = []
         for dim in range(self.data_dim):
@@ -159,6 +165,8 @@ class SelfOrganizingMap:
             if visualize:
                 self.plot()
 
+        self.classify()
+
     def move_map(self, bmu, data_point, alpha, sigma, proximity_function):
         for i in range(self.width):
             for j in range(self.height):
@@ -183,13 +191,15 @@ class SelfOrganizingMap:
 
     def plot_data(self, show=True):
         if self.data_dim == 2:
+            plt.figure(figsize=(10, 8))
             plt.scatter(self.data_X.iloc[:, 0], self.data_X.iloc[:, 1], c=self.data_y)
         if self.data_dim > 2:
-            fig = plt.figure()
+            fig = plt.figure(figsize=(10, 8))
             ax = fig.add_subplot(111, projection='3d')
             ax.scatter(self.data_X.iloc[:, 0], self.data_X.iloc[:, 1], self.data_X.iloc[:, 2], c=self.data_y)
         if show:
             plt.show()
+            return
         return plt
 
     def plot(self, show=True):
@@ -248,14 +258,48 @@ class SelfOrganizingMap:
                     [[j for j in range(self.height)] for i in range(self.width)],
                     c="black", s=10)
 
-
         x, y = self.generate_projection()
         plt.scatter(x, y, c=self.data_y, s=10)
         plt.show()
 
+    def classify(self):
+        votes = np.zeros((self.width, self.height, len(self.data_y.unique())), dtype=int)
+        for data_point, true_class in zip(self.data_X.values, self.data_y.values):
+            bmu = self._find_bmu(data_point)
+            votes[bmu[0], bmu[1], true_class] += 1
+        self.classification_map = np.argmax(votes, axis=2)
+        print(self.classification_map)
+            
+
+    def performance_summary(self):
+        if not hasattr(self, 'classification_map'):
+            raise ValueError("Please run classify() method before performance_summary()")
+        
+        correct_predictions = 0
+        total_predictions = 0
+        
+        for data_point, true_class in zip(self.data_X.values, self.data_y.values):
+            bmu = self._find_bmu(data_point)
+            predicted_class = self.classification_map[bmu[0], bmu[1]]
+            if predicted_class == true_class:
+                correct_predictions += 1
+            total_predictions += 1
+
+        accuracy = correct_predictions / total_predictions if total_predictions > 0 else 0
+        # f1 = f1_score(self.data_y, self.classification_map.flatten(), average='weighted')
+        # precision = precision_score(self.data_y, self.classification_map.flatten(), average='weighted')
+        # recall = recall_score(self.data_y, self.classification_map.flatten(), average='weighted')
+
+        print(f"=== Performance Summary ===")
+        print(f"Total Predictions: {total_predictions}")
+        print(f"Correct Predictions: {correct_predictions}")
+        print(f"Wrong Predictions: {total_predictions - correct_predictions}")
+        print(f"Accuracy: {accuracy:.2f}")
+
 
 if __name__ == '__main__':
-    som = SelfOrganizingMap(dataset_name="cube", width=20, height=20)
-    som.train(epochs=20, proximity_function="neg_second_gaussian_derivative")
+    som = SelfOrganizingMap(dataset_name="cube", width=10, height=10)
+    som.train(epochs=20, proximity_function="neg_second_gaussian_derivative", sigma=0.4)
+    # som.plot_projection()
     som.plot(show=True)
     som.show_history(delay=0.2, show_data=True)
