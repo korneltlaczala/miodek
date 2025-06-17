@@ -5,8 +5,8 @@ from matplotlib.widgets import Button, Slider
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
-from sklearn.metrics import f1_score, accuracy_score, precision_score, recall_score
 from sklearn.model_selection import train_test_split
+from mpl_toolkits.mplot3d import Axes3D
 
 class MapHistory():
     def __init__(self, map):
@@ -129,12 +129,23 @@ class SelfOrganizingMap:
         self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(
             self.data_X, self.data_y, test_size=0.2, random_state=42, stratify=self.data_y
         )
-        print(self.X_train.shape, self.y_train.shape)
+
+    def get_xy_for_data_type(self, data_type="test"):
+        if data_type == "test":
+            return self.X_test, self.y_test
+        elif data_type == "train":
+            return self.X_train, self.y_train
+        elif data_type == "all":
+            return self.data_X, self.data_y
+        elif data_type == "empty":
+            return pd.DataFrame(columns=self.data_X.columns), pd.Series(dtype=self.data_y.dtype)
+        else:
+            raise ValueError("data_type must be 'test', 'train', or 'all'")
 
     def _init_map(self):
         self.ranges = []
         for dim in range(self.data_dim):
-            self.ranges.append((self.data_X.iloc[:,dim].min(), self.data_X.iloc[:,dim].max()))
+            self.ranges.append((self.X_train.iloc[:,dim].min(), self.X_train.iloc[:,dim].max()))
         
         x = np.linspace(self.ranges[0][0], self.ranges[0][1], self.width)
         y = np.linspace(self.ranges[1][0], self.ranges[1][1], self.height)
@@ -148,15 +159,13 @@ class SelfOrganizingMap:
                       
 
     def train(self, epochs, lambda_decay=10, sigma=1, proximity_function="gaussian", verbose=True, visualize=False):
-
         iterator = (
             tqdm(range(epochs), ncols=100, colour='green') if verbose else
             range(epochs)
         )
-
         for epoch in iterator:
             alpha = np.exp(-epoch/lambda_decay)
-            for index, data_point in enumerate(self.data_X.sample(frac=1).values):
+            for index, data_point in enumerate(self.X_train.sample(frac=1).values):
                 bmu = self._find_bmu(data_point)
                 self.move_map(bmu, data_point, alpha, sigma, proximity_function)
                 self.map_detail_history.add(self.map, epoch, index)
@@ -164,7 +173,6 @@ class SelfOrganizingMap:
 
             if visualize:
                 self.plot()
-
         self.classify()
 
     def move_map(self, bmu, data_point, alpha, sigma, proximity_function):
@@ -176,7 +184,6 @@ class SelfOrganizingMap:
     def proximity_coeff(self, distance, sigma, function):
         if function == "gaussian":
             return np.exp(-distance**2 / (2 * sigma**2))
-
         if function == "neg_second_gaussian_derivative":
             return distance * np.exp(-distance**2 / (2 * sigma**2))
 
@@ -189,43 +196,156 @@ class SelfOrganizingMap:
         bmu = self._find_bmu(data_point)
         self.plot_point_and_bmu(data_point, bmu)
 
-    def plot_data(self, show=True):
+    def plot_data(self, show=True, data_type="test"):
+        X, y = self.get_xy_for_data_type(data_type)
         if self.data_dim == 2:
             plt.figure(figsize=(10, 8))
-            plt.scatter(self.data_X.iloc[:, 0], self.data_X.iloc[:, 1], c=self.data_y)
+            plt.scatter(X.iloc[:, 0], X.iloc[:, 1], c=y)
         if self.data_dim > 2:
             fig = plt.figure(figsize=(10, 8))
             ax = fig.add_subplot(111, projection='3d')
-            ax.scatter(self.data_X.iloc[:, 0], self.data_X.iloc[:, 1], self.data_X.iloc[:, 2], c=self.data_y)
+            ax.scatter(X.iloc[:, 0], X.iloc[:, 1], X.iloc[:, 2], c=y)
         if show:
             plt.show()
             return
         return plt
 
-    def plot(self, show=True):
+    def plot_data_split(self, show=True):
+        fig, axs = plt.subplots(1, 2, figsize=(16, 6))
+        plt.tight_layout()
+        # Plot train data
+        X_train, y_train = self.get_xy_for_data_type("train")
         if self.data_dim == 2:
-            plt.scatter(self.data_X.iloc[:, 0], self.data_X.iloc[:, 1], c=self.data_y, s=10)
-            plt.scatter(self.map[:,:,0].flatten(), self.map[:,:,1].flatten(), facecolors='none', edgecolors='red', s=5)
+            axs[0].scatter(X_train.iloc[:, 0], X_train.iloc[:, 1], c=y_train, s=10)
+            axs[0].set_title("Train Data")
+        else:
+            ax = fig.add_subplot(121, projection='3d')
+            ax.scatter(X_train.iloc[:, 0], X_train.iloc[:, 1], X_train.iloc[:, 2], c=y_train, s=10)
+            ax.set_title("Train Data")
+            axs[0].remove()
 
-            for i in range(self.width):
-                for j in range(self.height):
-                    plt.plot([self.map[i,j,0], self.map[i+1,j,0]], [self.map[i,j,1], self.map[i+1,j,1]], c='black', lw=0.5) if i < self.width-1 else None
-                    plt.plot([self.map[i,j,0], self.map[i,j+1,0]], [self.map[i,j,1], self.map[i,j+1,1]], c='black', lw=0.5) if j < self.height-1 else None
-            return plt.gca()
+        # Plot test data
+        X_test, y_test = self.get_xy_for_data_type("test")
+        if self.data_dim == 2:
+            axs[1].scatter(X_test.iloc[:, 0], X_test.iloc[:, 1], c=y_test, s=10)
+            axs[1].set_title("Test Data")
+        else:
+            ax = fig.add_subplot(122, projection='3d')
+            ax.scatter(X_test.iloc[:, 0], X_test.iloc[:, 1], X_test.iloc[:, 2], c=y_test, s=10)
+            ax.set_title("Test Data")
+            axs[1].remove()
+
+
+        if show:
+            plt.show()
+        else:
+            return plt
+
+    def plot(self, show=True, data_type="test", show_net=True, show_mislabelled=False):
+        X, y = self.get_xy_for_data_type(data_type)
+        if show_mislabelled:
+            if not hasattr(self, 'classification_map'):
+                raise ValueError("Please run classify() method before plotting mislabelled points")
+            y_pred = self.predict(X)
+            mislabelled = []
+            for data_point, true_class, predicted_class in zip(X.values, y.values, y_pred):
+                if predicted_class != true_class:
+                    mislabelled.append(data_point)
+            mislabelled = np.array(mislabelled)
+            y = y_pred
+
+        if self.data_dim == 2:
+            plt.figure(figsize=(10, 8))
+            plt.scatter(X.iloc[:, 0], X.iloc[:, 1], c=y, s=20)
+            if show_mislabelled:
+                plt.scatter(mislabelled[:,0].flatten(), mislabelled[:,1].flatten(), marker='x', color='red', s=80, label='Mislabelled')
+            if show_net:
+                plt.scatter(self.map[:,:,0].flatten(), self.map[:,:,1].flatten(), facecolors='none', edgecolors='red', s=5)
+                for i in range(self.width):
+                    for j in range(self.height):
+                        plt.plot([self.map[i,j,0], self.map[i+1,j,0]], [self.map[i,j,1], self.map[i+1,j,1]], c='dimgray', lw=0.5) if i < self.width-1 else None
+                        plt.plot([self.map[i,j,0], self.map[i,j+1,0]], [self.map[i,j,1], self.map[i,j+1,1]], c='dimgray', lw=0.5) if j < self.height-1 else None
+            if show == False:
+                return plt.gca()
 
         if self.data_dim > 2:
-            fig = plt.figure()
+            fig = plt.figure(figsize=(10, 8))
             ax = fig.add_subplot(111, projection='3d')
-            ax.scatter(self.data_X.iloc[:, 0], self.data_X.iloc[:, 1], self.data_X.iloc[:, 2], c=self.data_y, s=10)
-            ax.scatter(self.map[:,:,0].flatten(), self.map[:,:,1].flatten(), self.map[:,:,2].flatten(), facecolors='none', edgecolors='red', s=5)
+            ax.scatter(X.iloc[:, 0], X.iloc[:, 1], X.iloc[:, 2], c=y, s=10)
+            if show_mislabelled:
+                ax.scatter(mislabelled[:,0].flatten(), mislabelled[:,1].flatten(), mislabelled[:,2].flatten(), marker='x', color='red', s=80, label='Mislabelled')
+            if show_net:
+                ax.scatter(self.map[:,:,0].flatten(), self.map[:,:,1].flatten(), self.map[:,:,2].flatten(), facecolors='none', edgecolors='red', s=5)
+                for i in range(self.width):
+                    for j in range(self.height):
+                        if i < self.width - 1:
+                            ax.plot3D(
+                                [self.map[i, j, 0], self.map[i + 1, j, 0]],
+                                [self.map[i, j, 1], self.map[i + 1, j, 1]],
+                                [self.map[i, j, 2], self.map[i + 1, j, 2]],
+                                c='dimgray', lw=0.5
+                            )
+                        if j < self.height - 1:
+                            ax.plot3D(
+                                [self.map[i, j, 0], self.map[i, j + 1, 0]],
+                                [self.map[i, j, 1], self.map[i, j + 1, 1]],
+                                [self.map[i, j, 2], self.map[i, j + 1, 2]],
+                                c='dimgray', lw=0.5
+                            )
+            if show == False:
+                return ax
 
+    def plot_net_classification(self, show=True):
+        if not hasattr(self, 'classification_map'):
+            raise ValueError("Please run classify() method before plotting net classification")
+        
+        if self.data_dim == 2:
+            plt.figure(figsize=(10, 8))
+            plt.scatter(self.map[:, :, 0].flatten(), self.map[:, :, 1].flatten(), c=self.classification_map.flatten(), s=40)
             for i in range(self.width):
                 for j in range(self.height):
-                    ax.plot3D([self.map[i,j,0], self.map[i+1,j,0]], [self.map[i,j,1], self.map[i+1,j,1]], [self.map[i,j,2], self.map[i+1,j,2]], c='black', lw=0.5) if i < self.width-1 else None
-                    ax.plot3D([self.map[i,j,0], self.map[i,j+1,0]], [self.map[i,j,1], self.map[i,j+1,1]], [self.map[i,j,2], self.map[i,j+1,2]], c='black', lw=0.5) if j < self.height-1 else None
-            return ax
+                    if i < self.width - 1:
+                        plt.plot([self.map[i, j, 0], self.map[i + 1, j, 0]],
+                                 [self.map[i, j, 1], self.map[i + 1, j, 1]],
+                                 c='dimgray', lw=0.5)
+                    if j < self.height - 1:
+                        plt.plot([self.map[i, j, 0], self.map[i, j + 1, 0]],
+                                 [self.map[i, j, 1], self.map[i, j + 1, 1]],
+                                 c='dimgray', lw=0.5)
+            plt.title("SOM Net Classification")
+            if show:
+                plt.show()
+            else:
+                return plt.gca()
+        else:
+            fig = plt.figure(figsize=(10, 8))
+            ax = fig.add_subplot(111, projection='3d')
+            ax.scatter(self.map[:, :, 0].flatten(), self.map[:, :, 1].flatten(), self.map[:, :, 2].flatten(),
+                        s=40, c=self.classification_map.flatten())
+            for i in range(self.width):
+                for j in range(self.height):
+                    if i < self.width - 1:
+                        ax.plot3D([self.map[i, j, 0], self.map[i + 1, j, 0]],
+                                  [self.map[i, j, 1], self.map[i + 1, j, 1]],
+                                  [self.map[i, j, 2], self.map[i + 1, j, 2]],
+                                  c='dimgray', lw=0.5)
+                    if j < self.height - 1:
+                        ax.plot3D([self.map[i, j, 0], self.map[i, j + 1, 0]],
+                                  [self.map[i, j, 1], self.map[i, j + 1, 1]],
+                                  [self.map[i, j, 2], self.map[i, j + 1, 2]],
+                                  c='dimgray', lw=0.5)
+            ax.set_title("SOM Net Classification")
+            if show:
+                plt.show()
+            else:
+                return ax
 
-    def plot_point_and_bmu(self, point, bmu, show=True):
+    def plot_point_and_bmu(self, point=None, bmu=None, show=True):
+        if point is None:
+            point = self.X_test.sample(frac=1).values[0]
+        if bmu is None:
+            bmu = self._find_bmu(point)
+
         if self.data_dim == 2:
             plt = self.plot(show=False)
             plt.scatter(point[0], point[1], facecolors="none", edgecolors="black", s=30)
@@ -243,53 +363,58 @@ class SelfOrganizingMap:
     def show_history(self, delay=0.5, show_data=False):
         self.map_history.animate(delay=delay, show_data=show_data)
 
-    def generate_projection(self):
+    def generate_projection(self, data_type="test"):
+        data_X, data_y = self.get_xy_for_data_type(data_type)
         x = []
         y = []
-        for data_point in self.data_X.values:
+        for data_point in data_X.values:
             bmu = self._find_bmu(data_point)
-            x.append(bmu[0] + (random.random() - 0.5) * 0.4)
-            y.append(bmu[1] + (random.random() - 0.5) * 0.4)
-            
-        return x, y
+            x.append(bmu[0] + (random.random() - 0.5) * 0.5)
+            y.append(bmu[1] + (random.random() - 0.5) * 0.5)
+        return x, y, data_y
 
-    def plot_projection(self):
+    def plot_projection(self, data_type="test", colored_neurons=False):
+        if colored_neurons and not hasattr(self, 'classification_map'):
+            raise ValueError("Please run classify() method before plotting colored neurons")
+        colors = self.classification_map.flatten() if colored_neurons else "black"
         plt.scatter([[i for j in range(self.height)] for i in range(self.width)],
                     [[j for j in range(self.height)] for i in range(self.width)],
-                    c="black", s=10)
+                    c=colors, s=50, edgecolors='black', alpha=0.8, label='Neurons')
 
-        x, y = self.generate_projection()
-        plt.scatter(x, y, c=self.data_y, s=10)
+        x, y, data_y = self.generate_projection(data_type=data_type)
+        plt.scatter(x, y, c=data_y, edgecolors="#222", s=20)
         plt.show()
+
+    def predict(self, data_X=None):
+        if not hasattr(self, 'classification_map'):
+            raise ValueError("Please run classify() method before predict()")
+        if data_X is None:
+            data_X = self.X_test
+
+        predictions = []
+        for data_point in data_X.values:
+            bmu = self._find_bmu(data_point)
+            predicted_class = self.classification_map[bmu[0], bmu[1]]
+            predictions.append(predicted_class)
+        return predictions
 
     def classify(self):
         votes = np.zeros((self.width, self.height, len(self.data_y.unique())), dtype=int)
-        for data_point, true_class in zip(self.data_X.values, self.data_y.values):
+        for data_point, true_class in zip(self.X_train.values, self.y_train.values):
             bmu = self._find_bmu(data_point)
             votes[bmu[0], bmu[1], true_class] += 1
         self.classification_map = np.argmax(votes, axis=2)
-        print(self.classification_map)
-            
 
-    def performance_summary(self):
+    def performance_summary(self, data_type="test"):
+        X, y = self.get_xy_for_data_type(data_type)
         if not hasattr(self, 'classification_map'):
             raise ValueError("Please run classify() method before performance_summary()")
         
-        correct_predictions = 0
-        total_predictions = 0
-        
-        for data_point, true_class in zip(self.data_X.values, self.data_y.values):
-            bmu = self._find_bmu(data_point)
-            predicted_class = self.classification_map[bmu[0], bmu[1]]
-            if predicted_class == true_class:
-                correct_predictions += 1
-            total_predictions += 1
+        y_pred = self.predict(X)
+        correct_predictions = sum(p == t for p, t in zip(y_pred, y.values))
+        total_predictions = len(y_pred)
 
         accuracy = correct_predictions / total_predictions if total_predictions > 0 else 0
-        # f1 = f1_score(self.data_y, self.classification_map.flatten(), average='weighted')
-        # precision = precision_score(self.data_y, self.classification_map.flatten(), average='weighted')
-        # recall = recall_score(self.data_y, self.classification_map.flatten(), average='weighted')
-
         print(f"=== Performance Summary ===")
         print(f"Total Predictions: {total_predictions}")
         print(f"Correct Predictions: {correct_predictions}")
@@ -298,8 +423,8 @@ class SelfOrganizingMap:
 
 
 if __name__ == '__main__':
-    som = SelfOrganizingMap(dataset_name="cube", width=10, height=10)
-    som.train(epochs=20, proximity_function="neg_second_gaussian_derivative", sigma=0.4)
+    som = SelfOrganizingMap(dataset_name="hexagon", width=10, height=10)
+    som.train(epochs=100, proximity_function="neg_second_gaussian_derivative", sigma=0.4, lambda_decay=1000)
     # som.plot_projection()
     som.plot(show=True)
     som.show_history(delay=0.2, show_data=True)
